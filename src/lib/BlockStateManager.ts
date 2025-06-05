@@ -329,59 +329,63 @@ export class BlockStateManager {
             return [];
         }
 
-        let bestMatchingModels: IBlockOption | IBlockOption[] | null = null;
-        let maxMatches = -1;
-        let foundExactMatch = false;
+        // 最も一致するvariantKeyを見つけるロジックを修正
+        let bestMatchingVariantKey: string | null = null;
+        let maxMatchingProps = -1; // マッチしたプロパティの数
+        let hasExactMatch = false; // 完全一致が見つかったか
 
-        const selectedPropEntries = Object.keys(currentSelectedProps)
+        // ソート済みのselectedPropertiesのキー=値のペア配列
+        const sortedSelectedPropPairs = Object.keys(currentSelectedProps)
             .sort()
-            .map(prop => `${prop}=${currentSelectedProps[prop]}`);
-        const selectedPropSet = new Set(selectedPropEntries);
+            .map(p => `${p}=${currentSelectedProps[p]}`);
+        const selectedPropsCount = sortedSelectedPropPairs.length;
 
         for (const variantKey in variants) {
-            const keyParts = variantKey.split(',').sort();
+            const variantKeyPairs = variantKey.split(',').sort();
+            const variantKeyPropsCount = variantKeyPairs.length;
 
-            const allSelectedPropsMatchKey = selectedPropEntries.every(selectedPart => keyParts.includes(selectedPart));
-            const allKeyPropsMatchSelected = keyParts.every(keyPart => selectedPropSet.has(keyPart));
-
-            if (allSelectedPropsMatchKey && allKeyPropsMatchSelected) {
-                bestMatchingModels = variants[variantKey];
-                foundExactMatch = true;
-                break;
-            }
-
-            if (allSelectedPropsMatchKey) {
-                const currentMatches = keyParts.length;
-                if (currentMatches > maxMatches) {
-                    maxMatches = currentMatches;
-                    bestMatchingModels = variants[variantKey];
+            // variantKeyの全てのプロパティがselectedPropertiesに含まれているか、かつ値が一致するか
+            const isSubset = variantKeyPairs.every(keyPair => sortedSelectedPropPairs.includes(keyPair));
+            
+            if (isSubset) {
+                // selectedPropertiesとvariantKeyのプロパティ数が完全に一致するか
+                if (selectedPropsCount === variantKeyPropsCount) {
+                    // 完全一致
+                    bestMatchingVariantKey = variantKey;
+                    hasExactMatch = true;
+                    break; // 完全一致が見つかったら即座に終了
+                } else if (variantKeyPropsCount > maxMatchingProps) {
+                    // 部分一致の中で、より多くのプロパティがマッチしているものを優先
+                    // (selectedPropertiesがvariantKeyのスーパーセットの場合)
+                    maxMatchingProps = variantKeyPropsCount;
+                    bestMatchingVariantKey = variantKey;
                 }
             }
         }
 
         let modelsToReturn: IBlockOption[];
-        if (foundExactMatch) {
-            modelsToReturn = Array.isArray(bestMatchingModels) ? bestMatchingModels : [bestMatchingModels!];
-        } else if (bestMatchingModels) {
-            modelsToReturn = Array.isArray(bestMatchingModels) ? bestMatchingModels : [bestMatchingModels];
+        let conditionKeyToUse: string | undefined;
+
+        if (bestMatchingVariantKey) {
+            modelsToReturn = Array.isArray(variants[bestMatchingVariantKey]) ? variants[bestMatchingVariantKey] : [variants[bestMatchingVariantKey]];
+            conditionKeyToUse = bestMatchingVariantKey; // マッチしたvariantKeyをconditionKeyとする
         } else {
             const firstVariantKey = Object.keys(variants)[0];
             if (firstVariantKey) {
-                console.warn(`[BlockStateManager] No ideal variant match found for ${this.blockName}. Using first available variant model as fallback.`);
+                console.warn(`[BlockStateManager] No variant found for selected properties: ${this._getKey(currentSelectedProps)}. Using first available variant model as fallback for ${this.blockName}.`);
                 const fallbackModels = variants[firstVariantKey];
                 modelsToReturn = Array.isArray(fallbackModels) ? fallbackModels : [fallbackModels];
+                conditionKeyToUse = firstVariantKey;
             } else {
-                console.warn(`[BlockStateManager] No variants found for block: ${this.blockName}. Returning empty array.`);
+                console.warn(`[BlockStateManager] No variants found at all for block: ${this.blockName}. Returning empty array.`);
                 return [];
             }
         }
         
-        // Variantsの場合、通常は一つのvariantKeyに対して一つのモデルグループが対応する
-        // weightを持つ場合は、そのグループ全体でisWeightedをtrueにする
-        const isWeighted = modelsToReturn.length > 1 && modelsToReturn.some(model => model.weight !== undefined);
+        const isWeighted = modelsToReturn.some(model => typeof model.weight === 'number');
         return [{
             models: modelsToReturn,
-            conditionKey: this._getKey(currentSelectedProps), // Variantsの場合は現在のプロパティをキーとする
+            conditionKey: conditionKeyToUse, // マッチしたvariantKeyをconditionKeyとする
             isWeighted: isWeighted
         }];
     }
@@ -398,63 +402,73 @@ export class BlockStateManager {
 
         for (const rule of multipartRules) {
             let conditionMet = false;
-            let conditionKey: string | undefined; // このルールが適用されたwhen条件を記録するためのキー
+            let conditionKey: string | undefined;
 
             if (rule.when) {
-                const conditions = rule.when.AND || rule.when.OR;
-
                 if (rule.when.AND) {
-                    conditionMet = conditions!.every(andCondition => {
-                        const match = Object.entries(andCondition).every(([propName, expectedValue]) => {
-                            const actualValue = currentSelectedProps[propName];
-                            const expectedValues = String(expectedValue).split('|').map(v => v.trim());
-                            return expectedValues.includes(actualValue);
-                        });
-                        if (match) {
-                            // AND条件の場合は、全ての条件が満たされた場合にのみキーを設定
-                            // より具体的な条件を優先するために、条件の文字列をソートして結合
-                            conditionKey = Object.keys(andCondition).sort().map(p => `${p}=${andCondition[p]}`).join(',');
-                        }
+                    conditionMet = rule.when.AND.every(andCondition => {
+                        const match = this._doesConditionMatch(andCondition, currentSelectedProps);
                         return match;
                     });
+                    if (conditionMet) {
+                        conditionKey = rule.when.AND.map(c => this._getKey(c as Record<string, string>)).sort().join('&');
+                    }
                 } else if (rule.when.OR) {
-                    conditionMet = conditions!.some(orCondition => {
-                        const match = Object.entries(orCondition).every(([propName, expectedValue]) => {
-                            const actualValue = currentSelectedProps[propName];
-                            const expectedValues = String(expectedValue).split('|').map(v => v.trim());
-                            return expectedValues.includes(actualValue);
-                        });
-                        if (match) {
-                            // OR条件の場合は、最初にマッチした条件をキーとして設定
-                            conditionKey = Object.keys(orCondition).sort().map(p => `${p}=${orCondition[p]}`).join(',');
-                        }
+                    conditionMet = rule.when.OR.some(orCondition => {
+                        const match = this._doesConditionMatch(orCondition, currentSelectedProps);
                         return match;
                     });
+                    if (conditionMet) {
+                        conditionKey = `OR-${JSON.stringify(rule.when.OR.map(c => this._getKey(c as Record<string, string>)).sort())}`;
+                    }
                 } else {
-                    console.warn("[BlockStateManager] Unexpected 'when' structure after normalization.");
+                    console.warn("[BlockStateManager] Unexpected 'when' structure after normalization in multipart.");
                     conditionMet = false;
                 }
             } else {
-                // when条件がない場合（常に適用される）
                 conditionMet = true;
-                conditionKey = "default"; // デフォルトの条件として設定
+                conditionKey = "default_multipart";
             }
 
             if (conditionMet) {
                 const modelsToApply = Array.isArray(rule.apply) ? rule.apply : [rule.apply];
-                const isWeighted = modelsToApply.length > 1 && modelsToApply.some(model => model.weight !== undefined);
+                const isWeighted = modelsToApply.some(model => typeof model.weight === 'number');
 
-                // weightを持つモデルが複数ある場合は、一つのグループとして追加
-                // weightがない単一モデルの場合は、それぞれを個別のグループとして追加しても良いが、
-                // ここでは簡略化のため、条件を満たしたapply句は全て一つのグループとする
                 activeModelGroups.push({
-                    models: modelsToApply.sort( (a,b) => a.model < b.model ? -1: 1 ),
-                    conditionKey: conditionKey, // どの条件によってこのモデルが適用されたか
+                    models: modelsToApply.sort((a, b) => (a.model || '').localeCompare(b.model || '')), // 全てのモデルをそのまま返す
+                    conditionKey: conditionKey,
                     isWeighted: isWeighted
                 });
             }
         }
         return activeModelGroups;
+    }
+
+    /**
+     * 与えられた条件オブジェクトが selectedProperties と一致するかを判定します。
+     * これは `multipart` の `when` 節内の個々の条件評価に使用されます。
+     * @param condition { [key: string]: string | string[] } - 例: { "facing": "north", "powered": "true" } または { "axis": ["x", "z"] }
+     * @param selectedProperties { [key: string]: string } - 現在選択されているプロパティ
+     * @returns boolean
+     */
+    private _doesConditionMatch(condition: ICondition, selectedProperties: Record<string, string>): boolean {
+        // `condition` は `ICondition` 型なので、オブジェクト形式を期待
+        for (const propName in condition) {
+            const requiredValue = (condition as Record<string, string | string[]>)[propName];
+
+            if (Array.isArray(requiredValue)) {
+                // 値が配列の場合（例: "axis": ["x", "z"]）、selectedProperties の値がいずれかに一致すればOK
+                if (!requiredValue.includes(selectedProperties[propName])) {
+                    return false;
+                }
+            } else {
+                // 値が単一の場合、selectedProperties の値と完全に一致する必要がある
+                if (selectedProperties[propName] === undefined || selectedProperties[propName] !== requiredValue) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**

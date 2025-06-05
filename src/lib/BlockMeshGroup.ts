@@ -136,7 +136,7 @@ export class BlockMeshGroup extends THREE.Group {
             }
 
             if (modelData.elements) {
-                if (isDebug && false) {
+                if (isDebug ) {
                     console.log(toRaw(modelData.elements));
                 }
 

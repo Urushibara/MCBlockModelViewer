@@ -9,7 +9,7 @@ import { MCTextureLoader } from '@/lib/MCTextureLoader';
 import { BlockStateManager } from '@/lib/BlockStateManager';
 import { BlockMeshGroup } from '@/lib/BlockMeshGroup';
 import { RenderManager } from '@/lib/RenderManager';
-import type { IBlockOption } from './lib/interfaces/blockState';
+import type { IBlockOption, IActiveModelGroup } from './lib/interfaces/blockState';
 
 const $toast = useToast();
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
@@ -80,7 +80,7 @@ const onFileChange = async (event: Event) => {
         availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
 
         //デフォルトブロック
-        const debug_target = isDebug ? "chorus_plant" : "grass_block";
+        const debug_target = isDebug ? "grass_block" : "grass_block";
 
         if (availableBlocks.value.includes(debug_target)) {
             // 指定ブロックをデフォルトに設定
@@ -244,20 +244,16 @@ const initializeSelectedProperties = async () => { // async に変更
     selectedModelGroupIndices.value.clear(); // まず既存の選択をクリア
 
     for (const group of currentActiveGroups) {
-        if (group.isWeighted && group.models.length > 0) {
-            // weightを持つ最初のモデルを探す
-            const defaultModelIndex = group.models.findIndex(model => typeof model.weight === 'number');
-            if (defaultModelIndex !== -1) {
-                // weightを持つモデルが見つかったら、それをデフォルトに設定
-                selectedModelGroupIndices.value.set(group.conditionKey || '', defaultModelIndex);
-            } else {
-                // weightを持つモデルがないが weighted とマークされている場合（例: weightが0だが存在する場合など）
-                // または、何らかの理由でfindIndexが-1を返した場合、最初のモデルをデフォルトにする
-                selectedModelGroupIndices.value.set(group.conditionKey || '', 0);
+        if (group.models.length > 0) {
+            // weightを持つ最初のモデル、または単純に最初のモデルをデフォルト選択
+            let defaultIndex = 0;
+            if (group.isWeighted) {
+                const weightedIndex = group.models.findIndex(model => typeof model.weight === 'number');
+                if (weightedIndex !== -1) {
+                    defaultIndex = weightedIndex;
+                }
             }
-        } else {
-            // weighted でない、またはモデルが1つしかない場合は、常に最初のモデルを選択
-            selectedModelGroupIndices.value.set(group.conditionKey || '', 0);
+            selectedModelGroupIndices.value.set(group.conditionKey || '', defaultIndex);
         }
     }
 
@@ -277,27 +273,17 @@ const applyBlockState = async () => {
 
     // 各モデルグループについて、選択されたモデルを抽出
     for (const group of currentActiveModelGroups) {
-        if (group.isWeighted) {
-            // weightを持つグループの場合、ユーザーが選択したインデックスを使用
+        // 各グループ内で選択された（またはデフォルトの）モデルを一つだけ groupsToRender に追加
+        if (group.models.length > 0) {
             const selectedIndexForGroup = selectedModelGroupIndices.value.get(group.conditionKey || '') || 0;
-            if (group.models.length > 0 && selectedIndexForGroup < group.models.length) {
+            if (selectedIndexForGroup < group.models.length) {
                 groupsToRender.push(group.models[selectedIndexForGroup]);
-            } else if (group.models.length > 0) {
-                // インデックスが範囲外の場合、weightがあるものをデフォルト
-                let index = 0;
-                group.models.forEach( (model,idx) => {
-                    if (model.weight > 1) {
-                        index = idx;
-                        return;
-                    }
-                });
-                groupsToRender.push(group.models[index]);
-                selectedModelGroupIndices.value.set(group.conditionKey || '', index); // UIもリセット
+            } else {
+                // インデックスが範囲外の場合、最初のモデルをデフォルトとして選択
+                groupsToRender.push(group.models[0]);
+                selectedModelGroupIndices.value.set(group.conditionKey || '', 0); // UIもリセット
                 $toast.open({message: `Model index for condition '${group.conditionKey}' out of bounds, resetting to 0.`, type: "warning"});
             }
-        } else {
-            // weightを持たないグループは、全てのモデルを表示（通常は単一モデル）
-            groupsToRender.push(...group.models);
         }
     }
 
@@ -311,8 +297,10 @@ const applyBlockState = async () => {
             $toast.open({ message: error.message, type: "warning" });
         });
     } else {
-        if (typeof blockMeshGroup.value.clearModels === 'function') {
-            blockMeshGroup.value.clearModels();
+        if (blockMeshGroup.value) {
+            renderManager.value?.removeObject(blockMeshGroup.value);
+            blockMeshGroup.value.dispose();
+            blockMeshGroup.value = null;
         }
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
@@ -321,22 +309,11 @@ const applyBlockState = async () => {
 const doesGroupMatchSelectedProperty = (group: IActiveModelGroup, propName: string, selectedValue: string): boolean => {
     // conditionKey がない場合は常にマッチ（"always applied"）
     if (!group?.conditionKey) {
-        return true; // もし always applied を全てのプロパティの下に表示したいなら
-        // return false; // always applied は独立したセクションにしたいなら
+        return false; // 条件キーがない場合は、特定のプロパティとは関連付けないと判断
     }
-
-    // conditionKey をプロパティと値のペアに分割
-    const conditions = group.conditionKey.split(',').map(c => c.trim().split('='));
-
-    // 現在のプロパティと選択値が、モデルグループのいずれかの条件と一致するかどうかを確認
-    // OR条件の場合、このロジックはより複雑になります。
-    // ここでは、AND条件で記述されたものの一部が含まれる場合も考慮します。
-    // 例: "facing=north, powered=true" のグループは、facing の下にも powered の下にも表示される。
-
-    // シンプルな文字列比較
-    // 'propName=selectedValue' が conditionKey に含まれていればマッチとみなす
-    const targetCondition = `${propName}=${selectedValue}`;
-    return group.conditionKey.includes(targetCondition);
+    // 例: "facing=north,powered=true" の場合、"facing" も "powered" も含むと判断
+    // propName + "=" の形式で検索することで、より正確にプロパティ名をチェック
+    return group.conditionKey.includes(`${propName}=`);
 };
 
 /**
@@ -483,35 +460,15 @@ const saveAsImage = () => {
                     <div v-for="(group, groupIndex) in activeModelGroups"
                             :key="group.conditionKey || 'group-nested-' + propName + '-' + groupIndex">
                         <div v-if="doesGroupConditionContainProperty(group, propName)" class="model-group-box">
-                            <!--
-                            <p v-if="group.conditionKey">
-                                <strong>Condition:</strong> 
-                                {{ group.conditionKey }}
-                                <span v-if="group.isWeighted" style="color: orange;"> (Weighted/Random)</span>
-                            </p>
-                            <p v-else>
-                                <strong>Condition:</strong> Always applied
-                                <span v-if="group.isWeighted" style="color: orange;"> (Weighted/Random)</span>
-                            </p>-->
                             <div v-if="group.models.length > 1">
-                                <!--<label>Select Model ({{ group.models.length }} options):</label>-->
                                 <select 
                                     :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                    @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))"
-                                    v-if="group.isWeighted">
+                                    @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
                                     <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
-                                        {{ modelOption.model }} 
-                                        <span v-if="modelOption.weight"> (Weight: {{ modelOption.weight }})</span>
+                                        {{ JSON.stringify(modelOption) }} 
                                     </option>
                                 </select>
                             </div>
-                            <!--
-                            <div v-else-if="group.models.length === 1">
-                                Model: {{ group.models[0].model }}
-                            </div>
-                            <div v-else>
-                                No models in this group for this option.
-                            </div>-->
                         </div>
                     </div>
                 </div>
@@ -524,31 +481,17 @@ const saveAsImage = () => {
             <div v-for="(group, groupIndex) in independentModelGroups" 
                     :key="group.conditionKey || 'group-other-' + groupIndex" 
                     class="model-group-box">
-                <!--
-                <p>
-                    <strong>Condition:</strong> 
-                    {{ group.conditionKey || 'Always applied' }}
-                    <span v-if="group.isWeighted" style="color: orange;"> (Weighted/Random)</span>
-                </p>
-                -->
                 <div v-if="group.models.length > 1">
-                    <!--<label>Select Model ({{ group.models.length }} options):</label>-->
                     <select 
                         :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))"
+                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))"
                         v-if="group.isWeighted"
                     >
                         <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
-                            {{ modelOption.model }} 
-                            <span v-if="modelOption.weight"> (Weight: {{ modelOption.weight }})</span>
+                            {{ JSON.stringify(modelOption) }} 
                         </option>
                     </select>
                 </div>
-                <!--
-                <div v-else-if="group.models.length === 1">
-                    Model: {{ group.models[0].model }}
-                </div>
-                -->
             </div>
         </div>
     </div>
