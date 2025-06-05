@@ -1,22 +1,42 @@
-// BlockStateManager.js
-export class BlockStateManager {
-    blockName = null;
-    blockStateJson = null;
-    isMultipart = false;
+// BlockStateManager.ts
+// Minecraftのブロック状態 (blockstate.json) を管理し、
+// 特定のプロパティ値に基づいて適切なモデルを決定するクラスを提供します。
+import type { IBlockStateFile, IBlockOption, IVariants, IMultipart, ICase, ICondition } from './interfaces/blockState';
 
-    // getPossiblePropertiesの結果をキャッシュ (処理負荷が高いため)
-    _cachedPossibleProperties = null;
+/**
+ * `BlockStateManager` は、Minecraftの `blockstate.json` ファイルを解析し、
+ * 指定されたブロックプロパティに基づいて表示すべきモデルを決定します。
+ * Variants形式とMultipart形式の両方をサポートします。
+ */
+export class BlockStateManager {
+    // 現在管理しているブロックの名前
+    private blockName: string | null = null;
+    // 正規化されたブロック状態のJSONデータ
+    private blockStateJson: IBlockStateFile | null = null;
+    // 現在のブロック状態がMultipart形式であるかどうか
+    private isMultipart: boolean = false;
+
+    // `getPossibleProperties` の結果をキャッシュしてパフォーマンスを向上
+    private _cachedPossibleProperties: {
+        [propName: string]: {
+            type: 'string', // 現在はstringのみを想定
+            values: Set<string>,
+            defaultValue: string | null,
+            options: { value: string, hasMultipleModels: boolean }[]
+        }
+    } | null = null;
 
     constructor() {
-        // コンストラクタで特別な初期化は不要
+        // コンストラクタでの特別な初期化は不要です。
+        // プロパティは `setBlockState` で設定されます。
     }
 
     /**
      * 新しいブロックの状態データを設定し、内部状態を更新します。
-     * @param {string} blockName - ブロックの名前 (例: "stone", "oak_log")
-     * @param {object} blockStateJson - Minecraftのblockstate.jsonの内容
+     * @param blockName - ブロックの名前 (例: "stone", "oak_log")
+     * @param blockStateJson - Minecraftのblockstate.jsonの内容
      */
-    setBlockState(blockName, blockStateJson) {
+    public setBlockState(blockName: string, blockStateJson: IBlockStateFile): void {
         this.blockName = blockName;
         this.blockStateJson = this._normalizeBlockState(blockStateJson); // 正規化して格納
         this.isMultipart = !!blockStateJson.multipart; // multipartが存在すればtrue
@@ -26,11 +46,11 @@ export class BlockStateManager {
     /**
      * 指定されたプロパティ名と可能な値のリストから、推奨されるデフォルト値を決定します。
      * @private
-     * @param {string} propName - プロパティ名 (例: "facing", "half", "lit")
-     * @param {string[]} values - プロパティの可能な値のリスト (getPossiblePropertiesで収集されたもの)
-     * @returns {string} 推奨されるデフォルト値
+     * @param propName - プロパティ名 (例: "facing", "half", "lit")
+     * @param values - プロパティの可能な値のリスト
+     * @returns 推奨されるデフォルト値
      */
-    _determineDefaultValue(propName, values) {
+    private _determineDefaultValue(propName: string, values: string[]): string {
         // Boolean型と数値型の判定
         const hasTrue = values.includes('true');
         const hasFalse = values.includes('false');
@@ -40,35 +60,36 @@ export class BlockStateManager {
 
         // 1. 純粋なBoolean型の場合 (例: lit, powered, open)
         if (isPureBoolean) {
-            return hasFalse ? 'false' : 'true'; // falseがあればfalse、なければtrue (trueしか存在しないケース)
+            return hasFalse ? 'false' : 'true'; // 'false' があれば 'false'、なければ 'true'
         }
 
         // 2. 数値型の場合 (例: age, bites, rotation)
         if (isNumericOnly) {
-            return values.includes('0') ? '0' : values[0]; // 0があれば0、なければ最初の値
+            return values.includes('0') ? '0' : values[0]; // '0' があれば '0'、なければ最初の値
         }
 
         // 3. 特定のプロパティ名とEnum値のパターン
         // 'up', 'down', 'west', 'east', 'north', 'south'のような接続プロパティ
         const directionalProps = ['up', 'down', 'west', 'east', 'north', 'south'];
         if (directionalProps.includes(propName)) {
-            if (values.includes('none')) return 'none'; // 例: レッドストーンワイヤー
-            if (values.includes('false')) return 'false'; // 例: フェンス
+            if (values.includes('none')) return 'none';     // 例: レッドストーンワイヤー
+            if (values.includes('false')) return 'false';   // 例: フェンス
             if (values.includes('straight')) return 'straight'; // 特定の接続タイプ（例: 鉄格子など）
         }
 
-        // 4. その他のEnumプロパティに対する候補リスト (これはハードコーディングでも良い部分)
-        const specificDefaultCandidates = {
-            'facing': ['south', 'north', 'east', 'west', 'up', 'down'],
+        // 4. その他のEnumプロパティに対する優先順位リスト
+        const specificDefaultCandidates: { [key: string]: string[] } = {
+            'facing': ['south', 'up'],
             'face': ['floor', 'ceiling', 'wall'],
             'half': ['bottom', 'lower', 'top', 'upper'],
-            'shape': ['straight', 'outer_right', 'outer_left', 'inner_right', 'inner_left'],
+            'shape': ['straight', 'outer_right', 'north_south'],
             'axis': ['y', 'x', 'z'],
             'mode': ['default', 'save', 'load', 'corner'],
             'type': ['bottom', 'top', 'double'],
             'attachment': ['none', 'left', 'right', 'double'],
             'door_hinge': ['left', 'right'],
             'part': ['foot', 'head'],
+            'orientation': ['south_up'],
         };
 
         if (specificDefaultCandidates[propName]) {
@@ -83,7 +104,7 @@ export class BlockStateManager {
         if (values.includes('none')) return 'none';
         if (values.includes('default')) return 'default';
         if (values.includes('0')) return '0';
-        if (values.includes('false')) return 'false'; // 念のため再確認
+        if (values.includes('false')) return 'false';
 
         // それでも見つからない場合は、ソート済みの最初の値を返す
         return values[0];
@@ -91,71 +112,75 @@ export class BlockStateManager {
 
     /**
      * 現在のブロックの可能なプロパティとその値、および推奨されるデフォルト値を返します。
-     * @returns {object} プロパティ名 -> { type: string, values: string[], defaultValue: string } のマップ
+     * このメソッドは、パフォーマンス向上のため結果をキャッシュします。
+     * @returns プロパティ名 -> `{ type: string, values: Set<string>, defaultValue: string | null, options: { value: string, hasMultipleModels: boolean }[] }` のマップ
      */
-    getPossibleProperties() {
+    public getPossibleProperties(): {
+        [propName: string]: {
+            type: 'string',
+            values: Set<string>,
+            defaultValue: string | null,
+            options: { value: string, hasMultipleModels: boolean }[]
+        }
+    } {
         if (this._cachedPossibleProperties) {
             return this._cachedPossibleProperties;
         }
 
-        const possibleProps = {};
+        const possibleProps: ReturnType<BlockStateManager['getPossibleProperties']> = {};
 
-        // プロパティとその値をSetに追加するヘルパー関数
-        const addPropertyValues = (propName, valueToAdd) => {
+        /**
+         * プロパティ名と値を追加するヘルパー関数。
+         * パイプ区切りの値を個別に処理します。
+         */
+        const addPropertyValues = (propName: string, valueToAdd: string): void => {
             if (!possibleProps[propName]) {
                 possibleProps[propName] = { type: 'string', values: new Set(), defaultValue: null, options: [] };
             }
-
             // パイプ | で区切られた値、または単一の値を処理
-            const values = String(valueToAdd).split('|').map(v => v.trim()); // パイプで分割しトリム
-
-            if (Array.isArray(values)) {
-                values.forEach(v => possibleProps[propName].values.add(v));
-            } else {
-                possibleProps[propName].values.add(values);
-            }
+            String(valueToAdd).split('|').map(v => v.trim()).forEach(v => possibleProps[propName].values.add(v));
         };
 
         // プロパティとその値の組み合わせで、複数のモデルが存在するかを一時的に追跡
-        const propValueModelCounts = new Map(); // Map<`propName=value`, Set<variantKey>>
+        // Map<`propName=value`, Set<variantKey>>
+        const propValueModelCounts = new Map<string, Set<string>>();
 
         if (this.isMultipart) {
-            // Multipart の when 条件からプロパティを収集
-            for (const rule of this.blockStateJson.multipart) {
+            // Multipart形式の場合、when条件からプロパティを収集
+            for (const rule of (this.blockStateJson!.multipart || [])) {
                 if (rule.when) {
-                    const conditions = rule.when.AND || (rule.when.OR ? rule.when.OR : [rule.when]);
+                    // normalizeBlockStateでwhenが必ず { AND: [...] } または { OR: [...] } になるように正規化されている
+                    const conditions = rule.when.AND || (rule.when.OR || []);
                     for (const condition of conditions) {
                         for (const propName in condition) {
-                            if (propName === 'OR' || propName === 'AND') continue;
                             addPropertyValues(propName, condition[propName]);
                         }
                     }
                 }
             }
-        } else if (this.blockStateJson.variants) {
-            const variants = this.blockStateJson.variants;
-            const variantKeys = Object.keys(variants);
-
-            for (const key of variantKeys) {
+        } else if (this.blockStateJson!.variants) {
+            // Variants形式の場合、variantキーからプロパティを収集
+            const variants = this.blockStateJson!.variants;
+            for (const key in variants) {
                 const parts = key.split(',');
-
                 for (const part of parts) {
                     const [propName, value] = part.split('=');
                     if (propName && value) {
-                        // Variantsのキーは通常パイプ区切りではないが、念のためtrim
-                        addPropertyValues(propName, value.trim());
+                        const trimmedValue = value.trim();
+                        addPropertyValues(propName, trimmedValue);
 
-                        const propValueKey = `${propName}=${value.trim()}`; // trimした値でキー生成
+                        const propValueKey = `${propName}=${trimmedValue}`;
                         if (!propValueModelCounts.has(propValueKey)) {
                             propValueModelCounts.set(propValueKey, new Set());
                         }
-                        propValueModelCounts.get(propValueKey).add(key);
+                        propValueModelCounts.get(propValueKey)!.add(key);
                     }
                 }
             }
 
+            // 各プロパティの値に複数のモデルが関連付けられているかを判定
             for (const propName in possibleProps) {
-                const options = [];
+                const options: { value: string, hasMultipleModels: boolean }[] = [];
                 const currentValues = Array.from(possibleProps[propName].values);
 
                 for (const value of currentValues) {
@@ -186,57 +211,60 @@ export class BlockStateManager {
             const hasFalse = sortedValues.includes('false');
             const isPureBoolean = (hasTrue || hasFalse) && sortedValues.length === (hasTrue && hasFalse ? 2 : 1);
             const isNumericOnly = sortedValues.every(v => !isNaN(Number(v)));
-
+            
             // 接続プロパティの判定
-            const isDirectionalProp = ['north', 'south', 'east', 'west', 'up', 'down'].includes(propName);
+            const isDirectionalProp = ['north', 'east', 'west', 'south', 'up', 'down'].includes(propName);
 
-            // Booleanの補完 (これまで通り)
+            // Booleanの補完: 'true'のみの場合に'false'を追加
+            if (isPureBoolean && !hasFalse) {
+                sortedValues.push('false');
+            }
+
+            // 並べ替えロジック
             if (isPureBoolean) {
-                if (!hasFalse) {
-                    sortedValues.push('false');
-                }
+                // 'false'を常に先頭にする
                 sortedValues.sort((a, b) => {
                     if (a === 'false') return -1;
                     if (b === 'false') return 1;
                     return a.localeCompare(b);
                 });
-            }
-            // 数値の補完 (これまで通り)
-            else if (isNumericOnly) {
+            } else if (isNumericOnly) {
+                if (!sortedValues.includes("0") && this.blockName == 'composter'){
+                    sortedValues.push('0');
+                }
+                if (!sortedValues.includes("1")){
+                    sortedValues.push('1');
+                }
+                // 数値範囲を補完し、数値としてソート
                 const minVal = Math.min(...sortedValues.map(Number));
                 const maxVal = Math.max(...sortedValues.map(Number));
-                const allNumbers = new Set();
+                const allNumbers = new Set<string>();
                 for (let i = minVal; i <= maxVal; i++) {
                     allNumbers.add(String(i));
                 }
                 sortedValues = Array.from(allNumbers).sort((a, b) => Number(a) - Number(b));
-            }
-            // 接続プロパティで'none'が存在しない場合の補完
-            else if (isDirectionalProp && !sortedValues.includes('none')) {
-                // ただし、'true'/'false'のみの場合は除外する（既にisPureBooleanで処理済みのため）
-                // また、'low'/'tall'のようなケースに適用
-                if (!isPureBoolean && !isNumericOnly) { // 純粋なBooleanや数値でない場合にのみ'none'を追加
-                    sortedValues.push('none');
-                    // 'none'が最も優先されるように再ソート（必要に応じて）
-                    // 多くの場合は辞書順で十分ですが、UIの表示順によっては調整が必要
-                    sortedValues.sort((a, b) => {
-                        if (a === 'none') return -1;
-                        if (b === 'none') return 1;
-                        return a.localeCompare(b);
-                    });
-                }
-            }
-            // その他のプロパティは辞書順ソート (これまで通り)
-            else {
+            } else if (isDirectionalProp && !sortedValues.includes('none') && !isPureBoolean && !isNumericOnly) {
+                // 接続プロパティで'none'が存在しない場合に補完し、'none'を先頭にする
+                sortedValues.push('none');
+                sortedValues.sort((a, b) => {
+                    if (a === 'none') return -1;
+                    if (b === 'none') return 1;
+                    return a.localeCompare(b);
+                });
+            } else {
+                // その他のプロパティは辞書順ソート
                 sortedValues.sort((a, b) => a.localeCompare(b));
             }
 
+            // optionsプロパティの更新
             possibleProps[propName].options = sortedValues.map(value => ({
                 value: value,
                 hasMultipleModels: possibleProps[propName].options.find(opt => opt.value === value)?.hasMultipleModels || false
             }));
 
+            // values Setもソート済み配列で更新
             possibleProps[propName].values = new Set(sortedValues);
+            // デフォルト値の決定
             possibleProps[propName].defaultValue = this._determineDefaultValue(propName, sortedValues);
         }
 
@@ -246,25 +274,26 @@ export class BlockStateManager {
 
     /**
      * 指定されたプロパティに基づいて、表示すべきモデルのリストを取得します。
-     * selectedPropertiesが提供されない場合、または一部のプロパティが不足している場合は、
-     * getPossiblePropertiesで決定されたデフォルト値で補完されます。
-     * @param {object} [selectedProperties={}] - UIで選択されたプロパティとその値のマップ (例: { "facing": "north", "half": "bottom" })
-     * @returns {Array<object>} 適用されるモデルのリスト。各オブジェクトは { model: string, x?: number, y?: number, uvlock?: boolean } 形式。
+     * `selectedProperties`が提供されない場合、または一部のプロパティが不足している場合は、
+     * `getPossibleProperties`で決定されたデフォルト値で補完されます。
+     * @param selectedProperties - UIで選択されたプロパティとその値のマップ (例: `{ "facing": "north", "half": "bottom" }`)
+     * @returns 適用されるモデルのリスト。各オブジェクトは `IBlockOption` 形式。
      */
-    getActiveModels(selectedProperties = {}) {
+    public getActiveModels(selectedProperties: { [key: string]: string } = {}): IBlockOption[] {
         if (!this.blockStateJson) {
-            console.warn("[BlockStateManager] No block state JSON loaded.");
+            //console.warn("[BlockStateManager] No block state JSON loaded. Call setBlockState() first.");
             return [];
         }
 
-        const currentSelectedProps = {};
+        const currentSelectedProps: { [key: string]: string } = {};
         const possibleProps = this.getPossibleProperties();
 
+        // 選択されたプロパティを補完またはデフォルト値で埋める
         for (const propName in possibleProps) {
             if (selectedProperties[propName] !== undefined && possibleProps[propName].values.has(selectedProperties[propName])) {
                 currentSelectedProps[propName] = selectedProperties[propName];
             } else {
-                currentSelectedProps[propName] = possibleProps[propName].defaultValue;
+                currentSelectedProps[propName] = possibleProps[propName].defaultValue!; // `_determineDefaultValue` が null を返すことはないためアサーション
             }
         }
 
@@ -280,17 +309,17 @@ export class BlockStateManager {
     /**
      * Variants形式のblockstate.jsonから、選択されたプロパティに対応するモデルを取得します。
      * @private
-     * @param {object} currentSelectedProps - 現在選択されているプロパティとその値
-     * @returns {Array<object>} 適用されるモデルのリスト
+     * @param currentSelectedProps - 現在選択されているプロパティとその値
+     * @returns 適用されるモデルのリスト
      */
-    _getVariantModels(currentSelectedProps) {
-        const variants = this.blockStateJson.variants;
+    private _getVariantModels(currentSelectedProps: { [key: string]: string }): IActiveModelGroup[] {
+        const variants = this.blockStateJson!.variants;
         if (!variants || Object.keys(variants).length === 0) {
-            console.warn("[BlockStateManager] No variants found for this block.");
+            console.warn(`[BlockStateManager] No variants found for block: ${this.blockName}.`);
             return [];
         }
 
-        let bestMatchingModels = null;
+        let bestMatchingModels: IBlockOption | IBlockOption[] | null = null;
         let maxMatches = -1;
         let foundExactMatch = false;
 
@@ -302,22 +331,8 @@ export class BlockStateManager {
         for (const variantKey in variants) {
             const keyParts = variantKey.split(',').sort();
 
-            let allSelectedPropsMatchKey = true;
-            let allKeyPropsMatchSelected = true;
-
-            for (const selectedPart of selectedPropEntries) {
-                if (!keyParts.includes(selectedPart)) {
-                    allSelectedPropsMatchKey = false;
-                    break;
-                }
-            }
-
-            for (const keyPart of keyParts) {
-                if (!selectedPropSet.has(keyPart)) {
-                    allKeyPropsMatchSelected = false;
-                    break;
-                }
-            }
+            const allSelectedPropsMatchKey = selectedPropEntries.every(selectedPart => keyParts.includes(selectedPart));
+            const allKeyPropsMatchSelected = keyParts.every(keyPart => selectedPropSet.has(keyPart));
 
             if (allSelectedPropsMatchKey && allKeyPropsMatchSelected) {
                 bestMatchingModels = variants[variantKey];
@@ -326,125 +341,154 @@ export class BlockStateManager {
             }
 
             if (allSelectedPropsMatchKey) {
-                const tempMatches = selectedPropEntries.length;
-                if (tempMatches > maxMatches) {
-                    maxMatches = tempMatches;
+                const currentMatches = keyParts.length;
+                if (currentMatches > maxMatches) {
+                    maxMatches = currentMatches;
                     bestMatchingModels = variants[variantKey];
                 }
             }
         }
 
+        let modelsToReturn: IBlockOption[];
         if (foundExactMatch) {
-            return Array.isArray(bestMatchingModels) ? bestMatchingModels : [bestMatchingModels];
+            modelsToReturn = Array.isArray(bestMatchingModels) ? bestMatchingModels : [bestMatchingModels!];
         } else if (bestMatchingModels) {
-            return Array.isArray(bestMatchingModels) ? bestMatchingModels : [bestMatchingModels];
+            modelsToReturn = Array.isArray(bestMatchingModels) ? bestMatchingModels : [bestMatchingModels];
         } else {
             const firstVariantKey = Object.keys(variants)[0];
             if (firstVariantKey) {
-                console.warn(`[BlockStateManager] No good variant match found for ${this.blockName}. Using first variant model as fallback.`);
+                console.warn(`[BlockStateManager] No ideal variant match found for ${this.blockName}. Using first available variant model as fallback.`);
                 const fallbackModels = variants[firstVariantKey];
-                return Array.isArray(fallbackModels) ? fallbackModels : [fallbackModels];
+                modelsToReturn = Array.isArray(fallbackModels) ? fallbackModels : [fallbackModels];
             } else {
-                console.warn(`[BlockStateManager] No variants found for ${this.blockName}. Returning empty array.`);
+                console.warn(`[BlockStateManager] No variants found for block: ${this.blockName}. Returning empty array.`);
                 return [];
             }
         }
+        
+        // Variantsの場合、通常は一つのvariantKeyに対して一つのモデルグループが対応する
+        // weightを持つ場合は、そのグループ全体でisWeightedをtrueにする
+        const isWeighted = modelsToReturn.length > 1 && modelsToReturn.some(model => model.weight !== undefined);
+        return [{
+            models: modelsToReturn,
+            conditionKey: this._getKey(currentSelectedProps), // Variantsの場合は現在のプロパティをキーとする
+            isWeighted: isWeighted
+        }];
     }
 
     /**
      * Multipart形式のblockstate.jsonから、選択されたプロパティに対応するモデルを取得します。
      * @private
-     * @param {object} currentSelectedProps - 現在選択されているプロパティとその値
-     * @returns {Array<object>} 適用されるモデルのリスト
+     * @param currentSelectedProps - 現在選択されているプロパティとその値
+     * @returns 適用されるモデルのリスト
      */
-    _getMultipartModels(currentSelectedProps) {
-        const activeModels = [];
+    private _getMultipartModels(currentSelectedProps: { [key: string]: string }): IActiveModelGroup[] {
+        const activeModelGroups: IActiveModelGroup[] = [];
+        const multipartRules = this.blockStateJson!.multipart || [];
 
-        for (const rule of this.blockStateJson.multipart) {
+        for (const rule of multipartRules) {
+            let conditionMet = false;
+            let conditionKey: string | undefined; // このルールが適用されたwhen条件を記録するためのキー
+
             if (rule.when) {
-                let conditionMet = true;
-                const conditions = rule.when.AND || (rule.when.OR ? rule.when.OR : [rule.when]);
+                const conditions = rule.when.AND || rule.when.OR;
 
-                // conditions は AND/OR の配列なので、それぞれの条件を評価
                 if (rule.when.AND) {
-                    conditionMet = conditions.every(andCondition => {
-                        return Object.entries(andCondition).every(([propName, expectedValue]) => {
+                    conditionMet = conditions!.every(andCondition => {
+                        const match = Object.entries(andCondition).every(([propName, expectedValue]) => {
                             const actualValue = currentSelectedProps[propName];
-                            // expectedValue が配列、またはパイプ区切りの文字列の場合
-                            const expectedValues = Array.isArray(expectedValue) ? expectedValue : String(expectedValue).split('|').map(v => v.trim());
+                            const expectedValues = String(expectedValue).split('|').map(v => v.trim());
                             return expectedValues.includes(actualValue);
                         });
+                        if (match) {
+                            // AND条件の場合は、全ての条件が満たされた場合にのみキーを設定
+                            // より具体的な条件を優先するために、条件の文字列をソートして結合
+                            conditionKey = Object.keys(andCondition).sort().map(p => `${p}=${andCondition[p]}`).join(',');
+                        }
+                        return match;
                     });
                 } else if (rule.when.OR) {
-                    conditionMet = conditions.some(orCondition => {
-                        return Object.entries(orCondition).every(([propName, expectedValue]) => {
+                    conditionMet = conditions!.some(orCondition => {
+                        const match = Object.entries(orCondition).every(([propName, expectedValue]) => {
                             const actualValue = currentSelectedProps[propName];
-                            const expectedValues = Array.isArray(expectedValue) ? expectedValue : String(expectedValue).split('|').map(v => v.trim());
+                            const expectedValues = String(expectedValue).split('|').map(v => v.trim());
                             return expectedValues.includes(actualValue);
                         });
+                        if (match) {
+                            // OR条件の場合は、最初にマッチした条件をキーとして設定
+                            conditionKey = Object.keys(orCondition).sort().map(p => `${p}=${orCondition[p]}`).join(',');
+                        }
+                        return match;
                     });
-                } else { // 単一の条件オブジェクト (normalizeBlockStateでANDに変換されるはずだが念のため)
-                    conditionMet = Object.entries(rule.when).every(([propName, expectedValue]) => {
-                        const actualValue = currentSelectedProps[propName];
-                        const expectedValues = Array.isArray(expectedValue) ? expectedValue : String(expectedValue).split('|').map(v => v.trim());
-                        return expectedValues.includes(actualValue);
-                    });
-                }
-
-                if (conditionMet) {
-                    const modelsToApply = Array.isArray(rule.apply) ? rule.apply : [rule.apply];
-                    activeModels.push(...modelsToApply);
+                } else {
+                    console.warn("[BlockStateManager] Unexpected 'when' structure after normalization.");
+                    conditionMet = false;
                 }
             } else {
+                // when条件がない場合（常に適用される）
+                conditionMet = true;
+                conditionKey = "default"; // デフォルトの条件として設定
+            }
+
+            if (conditionMet) {
                 const modelsToApply = Array.isArray(rule.apply) ? rule.apply : [rule.apply];
-                activeModels.push(...modelsToApply);
+                const isWeighted = modelsToApply.length > 1 && modelsToApply.some(model => model.weight !== undefined);
+
+                // weightを持つモデルが複数ある場合は、一つのグループとして追加
+                // weightがない単一モデルの場合は、それぞれを個別のグループとして追加しても良いが、
+                // ここでは簡略化のため、条件を満たしたapply句は全て一つのグループとする
+                activeModelGroups.push({
+                    models: modelsToApply.sort( (a,b) => a.model < b.model ? -1: 1 ),
+                    conditionKey: conditionKey, // どの条件によってこのモデルが適用されたか
+                    isWeighted: isWeighted
+                });
             }
         }
-        return activeModels;
+        return activeModelGroups;
     }
 
     /**
-     * blockStateの構造の異なりを吸収する。
+     * blockstateの構造の差異を吸収し、内部で扱いやすい形式に正規化します。
+     * 主に、`apply`が単一のオブジェクトでも配列として扱えるようにし、
+     * `when`条件を `AND` または `OR` の配列形式に変換します。
      * @private
-     * @param {object} blockStateJson - Minecraftのblockstate.jsonの内容
-     * @returns {object} 正規化後のblockstate.jsonの内容
+     * @param blockStateJson - Minecraftのblockstate.jsonの内容
+     * @returns 正規化後のblockstate.jsonの内容
      */
-    _normalizeBlockState(blockStateJson) {
+    private _normalizeBlockState(blockStateJson: IBlockStateFile): IBlockStateFile {
         if (!blockStateJson) {
             return blockStateJson;
         }
 
-        if (blockStateJson.variants) {
-            const newVariants = {};
-            for (const key in blockStateJson.variants) {
-                const value = blockStateJson.variants[key];
-                newVariants[key] = Array.isArray(value) ? value : [value];
+        const normalizedJson = JSON.parse(JSON.stringify(blockStateJson)) as IBlockStateFile; // ディープコピー
+
+        if (normalizedJson.variants) {
+            // variantsの各エントリの`IBlockOption`を必ず配列にする
+            for (const key in normalizedJson.variants as IVariants) {
+                const value = normalizedJson.variants[key];
+                normalizedJson.variants[key] = Array.isArray(value) ? value : [value];
             }
-            return { ...blockStateJson, variants: newVariants };
-        } else if (blockStateJson.multipart) {
-            const newMultipart = [];
-            for (const rule of blockStateJson.multipart) {
-                const newRule = { ...rule };
-                newRule.apply = Array.isArray(rule.apply) ? rule.apply : [rule.apply];
-                // When節の正規化: ANDまたはORが存在しない場合、単一のwhenオブジェクトをAND配列に変換
-                // これにより、_getMultipartModels での条件評価が容易になる
-                if (newRule.when && !newRule.when.AND && !newRule.when.OR) {
-                    newRule.when = { AND: [newRule.when] };
+        } else if (normalizedJson.multipart) {
+            // multipartの各ルールの`apply`を必ず配列にし、`when`条件を正規化
+            for (const rule of normalizedJson.multipart as IMultipart) {
+                rule.apply = (Array.isArray(rule.apply) ? rule.apply : [rule.apply]) as IMultipart;
+
+                // `when`節の正規化: `AND`または`OR`が存在しない場合、単一の`when`オブジェクトを`AND`配列に変換
+                if (rule.when && !rule.when.AND && !rule.when.OR) {
+                    rule.when = { AND: [rule.when as ICondition] }; // 単一の条件オブジェクトをAND配列にラップ
                 }
-                newMultipart.push(newRule);
             }
-            return { ...blockStateJson, multipart: newMultipart };
         }
-        return blockStateJson;
+        return normalizedJson;
     }
 
     /**
      * ブロックのプロパティマップからソートされたVariantキー文字列を生成します。
      * @private
-     * @param {object} props - プロパティとその値のマップ
-     * @returns {string} ソートされたVariantキー文字列 (例: "facing=north,half=bottom")
+     * @param props - プロパティとその値のマップ
+     * @returns ソートされたVariantキー文字列 (例: "facing=north,half=bottom")
      */
-    _getKey(props) {
+    private _getKey(props: { [key: string]: string }): string {
         return Object.keys(props)
             .sort()
             .map(key => `${key}=${props[key]}`)

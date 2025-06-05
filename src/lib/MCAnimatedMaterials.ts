@@ -31,7 +31,7 @@ interface MCAnimatedMaterialOptions {
  * テクスチャのuserDataにアニメーション情報が格納されている場合に、その情報に基づいてUVオフセットを更新します。
  * クロスフェードはフラグメントシェーダーを書き換えることで実現します。
  */
-export class MCAnimatedMaterialBase {
+export class MCAnimatedMaterialHelper {
     // 現在のフレームにおける経過時間 (ミリ秒)
     private currentFrameTime: number = 0;
     // 現在表示されているフレームのインデックス
@@ -109,10 +109,8 @@ export class MCAnimatedMaterialBase {
         shader: { vertexShader: string, fragmentShader: string, uniforms: any },
         renderer: THREE.WebGLRenderer // rendererは通常使用しないが、APIに合わせる
     ): void {
-        // アニメーションしない、またはクロスフェードしない場合はシェーダーの変更は不要
-        if (!this.isAnimated || !this.animationData || !this.animationData.interpolate) {
-            return;
-        }
+
+        this._shader = shader; // シェーダーインスタンスを保存し、updateメソッドからuniformsを更新できるようにする
 
         // 頂点シェーダーにvUv varyingを追加
         shader.vertexShader = shader.vertexShader.replace(
@@ -129,6 +127,7 @@ export class MCAnimatedMaterialBase {
         shader.uniforms.u_currentFrameYOffset = { value: 0.0 }; // 現在フレームのUVオフセット
         shader.uniforms.u_nextFrameYOffset = { value: 0.0 };    // 次のフレームのUVオフセット
         shader.uniforms.u_crossfadeBlend = { value: 0.0 };      // ブレンド率
+        shader.uniforms.u_isInterpolate = { value: this.animationData.interpolate };
 
         // フラグメントシェーダーの修正: uniformの宣言とテクスチャサンプリングロジックの変更
         shader.fragmentShader = shader.fragmentShader.replace(
@@ -138,6 +137,7 @@ export class MCAnimatedMaterialBase {
             uniform float u_currentFrameYOffset;
             uniform float u_nextFrameYOffset;
             uniform float u_crossfadeBlend; // 0.0: current, 1.0: next
+            uniform bool u_isInterpolate;
 
             varying vec2 vUv;
             void main() {
@@ -150,35 +150,58 @@ export class MCAnimatedMaterialBase {
             '#include <map_fragment>',
             /*glsl*/`
             #ifdef USE_MAP
-                // 総フレーム数が1より大きく、クロスフェードが有効な場合
-                if (u_totalFrames > 1.0 && u_crossfadeBlend >= 0.0 && u_crossfadeBlend <= 1.0) {
-                    float frameHeight = 1.0 / u_totalFrames;
+                float frameHeight = 1.0 / u_totalFrames; // フレーム高さを一度計算
 
-                    // 現在のフレームのUV座標を計算し、テクセルをサンプリング
-                    vec2 currentFrameUv = vec2(vUv.x, (vUv.y * frameHeight) + u_currentFrameYOffset);
-                    vec4 texelCurrent = texture2D(map, currentFrameUv);
+                // 現在のフレームのUV座標を計算 (flipY=falseに対応するため、vUv.y を 1.0 - vUv.y に変換)
+                vec2 currentFrameUv = vec2(vUv.x, vUv.y * frameHeight + u_currentFrameYOffset);
+                vec4 texelCurrent = texture2D(map, currentFrameUv);
+
+                // クロスフェードが有効な場合
+                if (u_isInterpolate == true && u_totalFrames > 1.0 && u_crossfadeBlend >= 0.0 && u_crossfadeBlend <= 1.0) {
 
                     // 次のフレームのUV座標を計算し、テクセルをサンプリング
-                    vec2 nextFrameUv = vec2(vUv.x, (vUv.y * frameHeight) + u_nextFrameYOffset);
+                    // flipY=falseに対応するため、vUv.y を 1.0 - vUv.y に変換して計算
+                    vec2 nextFrameUv = vec2(vUv.x, vUv.y * frameHeight + u_nextFrameYOffset);
                     vec4 texelNext = texture2D(map, nextFrameUv);
 
                     // 現在と次のフレームの色とアルファをブレンド
                     diffuseColor.rgb = mix(texelCurrent.rgb, texelNext.rgb, u_crossfadeBlend);
+
                     diffuseColor.a = mix(texelCurrent.a, texelNext.a, u_crossfadeBlend);
+                    
                 } else {
-                    // クロスフェードが無効な場合、通常のテクスチャサンプリングを行う（主にアルファマップ用）
-                    // ここではデフォルトの <map_fragment> の機能を模倣
-                    // THREE.jsのデフォルトのmap_fragmentはvUvを使用しないため、この部分はmap.offsetとrepeatに依存する
-                    // ただし、アニメーションしない場合はそもそもonBeforeCompileが呼ばれないため、このelseブロックは
-                    // 主にcrossfadeBlendが範囲外になった場合のフォールバックとして機能する
-                    vec4 texelColor = texture2D( map, vUv ); // vUvは追加されたvarying
-                    diffuseColor *= texelColor;
+                    // パラパラアニメーションモード (クロスフェードしない場合)
+                    diffuseColor.rgb = texelCurrent.rgb;
+
+                    diffuseColor.a = texelCurrent.a;
+                }
+
+                diffuseColor.rgb *= diffuse.rgb;
+            #endif
+            `
+        ).replace(
+            '#include <alphamap_fragment>',
+            /*glsl*/`
+
+            #ifdef USE_ALPHAMAP
+                // アルファマップのテクセルも同様に計算（アニメーションに追従する場合）
+                vec2 currentAlphaMapUv = vec2(vUv.x, vUv.y * frameHeight + u_currentFrameYOffset);
+                vec4 alphaMapColorCurrent = texture2D( alphaMap, currentAlphaMapUv );
+
+                // クロスフェードが有効な場合
+                if (u_isInterpolate == true && u_totalFrames > 1.0 && u_crossfadeBlend >= 0.0 && u_crossfadeBlend <= 1.0) {
+                    // 次のアルファマップのテクセルもサンプリング
+                    vec2 nextAlphaMapUv = vec2(vUv.x, vUv.y * frameHeight + u_nextFrameYOffset);
+                    vec4 alphaMapColorNext = texture2D( alphaMap, nextAlphaMapUv );
+
+                    // アルファマップのアルファもブレンドし、最終的なアルファに掛け合わせる
+                    diffuseColor.a *= mix( alphaMapColorCurrent.g, alphaMapColorNext.g, u_crossfadeBlend );
+                } else {
+                    diffuseColor.a *= alphaMapColorCurrent.g;
                 }
             #endif
             `
         );
-
-        this._shader = shader; // シェーダーインスタンスを保存し、updateメソッドからuniformsを更新できるようにする
     }
 
     /**
@@ -206,41 +229,45 @@ export class MCAnimatedMaterialBase {
         const frameHeightUnit = 1.0 / actualFrames; // UV空間における1フレームの高さ単位
 
         // 現在のフレームのUVオフセットを計算
-        let currentYOffset = 0;
+        let currentRawIndex = 0;
         const currentFrameInfo = frames[currentFrameIndex];
         if (typeof currentFrameInfo === 'number') {
-            currentYOffset = currentFrameInfo * frameHeightUnit;
+            currentRawIndex = currentFrameInfo;
         } else {
-            currentYOffset = currentFrameInfo.index * frameHeightUnit;
+            currentRawIndex = currentFrameInfo.index;
         }
+        // flipY=falseの場合、UVオフセットは `(totalFrames - 1 - frameIndex) * frameHeightUnit`
+        // または `1.0 - (frameIndex + 1) * frameHeightUnit` のように反転させる必要がある
+        // 例えば、0番目のフレームは一番下 (実際は一番上) にあるので、そのオフセットは (actualFrames - 1 - currentRawIndex) * frameHeightUnit
+        const currentYOffset = (actualFrames - 1 - currentRawIndex) * frameHeightUnit;
 
-        // クロスフェーディング時のみ次のフレームのUVオフセットも計算
+        // クロスフェーディング時のフレームのUVオフセット計算
         let nextYOffset = 0;
-        if (this.animationData.interpolate) {
-            this.nextFrameIndex = (currentFrameIndex + 1) % totalFrames;
-            const nextFrameInfo = frames[this.nextFrameIndex];
-            if (typeof nextFrameInfo === 'number') {
-                nextYOffset = nextFrameInfo * frameHeightUnit;
-            } else {
-                nextYOffset = nextFrameInfo.index * frameHeightUnit;
-            }
+        this.nextFrameIndex = (currentFrameIndex + 1) % totalFrames;
+        let nextRawIndex = 0;
+        const nextFrameInfo = frames[this.nextFrameIndex];
+        if (typeof nextFrameInfo === 'number') {
+            nextRawIndex = nextFrameInfo;
+        } else {
+            nextRawIndex = nextFrameInfo.index;
         }
+        nextYOffset = (actualFrames - 1 - nextRawIndex) * frameHeightUnit;
 
         // onBeforeCompileで設定したuniformを更新
-        if (this._shader && this.animationData.interpolate) {
+        if(this._shader){
             this._shader.uniforms.u_currentFrameYOffset.value = currentYOffset;
             this._shader.uniforms.u_nextFrameYOffset.value = nextYOffset;
             // 新しいフレームに切り替わったため、ブレンド率は0から開始
             this._shader.uniforms.u_crossfadeBlend.value = 0.0;
-        } else {
-            // クロスフェードしない場合は、従来のoffsetとrepeatでUVを制御
-            texture.offset.y = currentYOffset;
-            texture.repeat.set(1, frameHeightUnit);
-            if (alphaMap) {
-                alphaMap.offset.y = currentYOffset;
-                alphaMap.repeat.set(1, frameHeightUnit);
-            }
         }
+
+        //    // クロスフェードしない場合は、従来のoffsetとrepeatでUVを制御
+        //    texture.offset.y = currentYOffset;
+        //    texture.repeat.set(1, frameHeightUnit);
+        //    if (alphaMap) {
+        //        alphaMap.offset.y = currentYOffset;
+        //        alphaMap.repeat.set(1, frameHeightUnit);
+        //    }
     }
 
     /**
@@ -250,8 +277,30 @@ export class MCAnimatedMaterialBase {
      * @param deltaTime - 前回の更新からの経過時間 (ミリ秒)
      */
     public update(deltaTime: number): void {
-        if (!this.isAnimated || !this.animationData) {
+        if (!this.isAnimated) {
             return;
+        }
+
+        if (!this._shader) {
+            // console.warn("[MCAnimatedMaterial] _shader not initialized yet. Uniforms cannot be updated."); // 過剰なログになるのでコメントアウト推奨
+            return;
+        }
+
+        // アニメーションデータがなければ何もしない
+        if (!this.animationData) {
+            return;
+        }
+
+        const totalFrames = this.animationData.totalFrames;
+        if (totalFrames <= 1) { // 1フレーム以下ならアニメーションしない
+            return;
+        }
+
+        // 最初のフレームがまだ適用されていない場合、一度だけ適用する
+        // _shader が初期化された直後に、最初のフレームの状態を確実にセットする
+        if (!this.isInitialized) {
+            this.setFrame(0); // currentFrameIndex=0 の状態で一度適用
+            this.isInitialized = true;
         }
 
         this.currentFrameTime += deltaTime;
@@ -325,6 +374,36 @@ export class MCAnimatedMaterialBase {
     }
 
     /**
+     * アニメーションの設定を初期化します。
+     * 初期化時のロードタイミングのズレなどに対応できるかも。
+     */
+    public reset(): void {
+        this.currentFrameIndex = 0;
+        this.currentFrameTime = 0;
+        this.nextFrameIndex = 0;
+        this.crossfadeBlend = 0;
+        this.isInitialized = false; // Reset initialization flag
+
+        // _shader が存在しても、明示的に再取得を試みる
+        if (!this._shader) {
+            this.material.version++;
+        }
+
+        // Uniformsも初期化（_shaderが利用可能なら）
+        if (this._shader) {
+            this._shader.uniforms.u_currentFrameYOffset.value = 0.0;
+            this._shader.uniforms.u_nextFrameYOffset.value = 0.0;
+            this._shader.uniforms.u_crossfadeBlend.value = 0.0;
+            this._shader.uniforms.u_isInterpolate.value = this.animationData.interpolate;
+        }
+
+        // テクスチャのoffsetも初期化（クロスフェードしない場合）
+        if (this.map && !this.animationData.interpolate) {
+            this.map.offset.y = 0.0;
+        }
+    }
+
+    /**
      * マテリアルと関連するThree.jsのリソースを解放します。
      * これにより、メモリリークを防ぎます。
      */
@@ -348,12 +427,19 @@ export function injectMCAnimationFeatures(
     material: THREE.Material,
     parameters: THREE.MaterialParameters
 ) {
-    const base = new MCAnimatedMaterialBase(material, parameters);
+    // 既に機能が注入されている場合は何もしない
+    if ((material as any).isMCAnimatedMaterial) {
+        console.warn(`MCAnimationFeatures already injected for material (UUID: ${material.uuid}). Skipping.`);
+        return;
+    }
+
+    const base = new MCAnimatedMaterialHelper(material, parameters);
 
     // MCAnimatedMaterialBaseのメソッドをmaterialインスタンスに委譲 (バインドしてthisを固定)
     (material as any).update = base.update.bind(base);
     (material as any).setFrame = base.setFrame.bind(base);
     (material as any).setProgress = base.setProgress.bind(base);
+    (material as any).reset = base.reset.bind(base);
 
     // 既存のonBeforeCompileを保存し、baseのonBeforeCompileを先に呼び出すようにオーバーライド
     const origCompile = material.onBeforeCompile;

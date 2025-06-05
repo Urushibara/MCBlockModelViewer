@@ -7,6 +7,9 @@ export interface MCTextures {
     alphaMap?: THREE.Texture;
 }
 
+/**
+ * テクスチャのカスタムUserDataの型定義 (アニメーション情報など)
+ */
 export interface TextureUserData {
     texture_id: string;
     texture_name: string;
@@ -51,10 +54,12 @@ export class MCTextureLoader {
      * @returns {Promise<MCTextures>} ロードされた MCTextures オブジェクトのPromise
      */
     async loadTexture(textureRef, textureId = null): MCTextures {
-        const key = textureId || textureRef;
+        const key = `${textureId}@${textureRef}` || textureRef;
         if (this.textures.has(key)) {
             return this.textures.get(key);
         }
+
+        //console.log(`textureRef: ${textureRef}, textureId: ${textureId}`);
 
         // テクスチャ参照から名前空間と相対パスを分離
         const [namespace, relPath] = this._splitNamespace(textureRef);
@@ -72,7 +77,7 @@ export class MCTextureLoader {
             
             // Uint8ArrayからBlobを作成し、createImageBitmapでImageBitmapに変換
             const blob = new Blob([pngData], { type: 'image/png' });
-            const image = await createImageBitmap(blob);
+            const image = await createImageBitmap(blob, {imageOrientation: "flipY"});
 
             // チャンネル分離（アニメーションテクスチャなどに対応するため）
             // ここで _splitImageChannels が返す Promise<ImageBitmap> を await して解決する
@@ -83,11 +88,11 @@ export class MCTextureLoader {
 
             // THREE.Texture の作成
             const tex = new THREE.Texture(textureChannels.color);
-            tex.needsUpdate = true;
             tex.minFilter = THREE.NearestFilter; // Minecraftらしいピクセル感を出す
             tex.magFilter = THREE.NearestFilter; // Minecraftらしいピクセル感を出す
             tex.colorSpace = THREE.SRGBColorSpace;
-            tex.flipY = true;
+            tex.flipY = false;
+            tex.needsUpdate = true;
             
             const mctex: MCTextures = {map: tex};
 
@@ -97,11 +102,11 @@ export class MCTextureLoader {
                 mctex.alphaMap.minFilter = THREE.NearestFilter;
                 mctex.alphaMap.magFilter = THREE.NearestFilter;
                 mctex.alphaMap.colorSpace = THREE.SRGBColorSpace;
-                mctex.alphaMap.flipY = true;
+                mctex.alphaMap.flipY = false;
                 mctex.alphaMap.needsUpdate = true;
-                tex.transparent = true; // アルファマップがある場合は透過を有効にする
+                mctex.transparent = true; // アルファマップがある場合は透過を有効にする
             } else {
-                tex.transparent = false;
+                mctex.transparent = false;
             }
 
             // テクスチャのメタデータ (mc.mcmeta) をチェックし、アニメーション情報を設定
@@ -136,7 +141,11 @@ export class MCTextureLoader {
             // jarLoader.getText を使ってテキストコンテンツを取得
             const mcmetaText = await this._jarLoader.getText(mcmetaPath); 
 
-			texture.userData = {};
+			texture.userData = {
+                texture_id: textureId,  // (例: "#texture")
+                texture_name: textureRef, // (例: "block/stone")
+                texture_path: mcmetaPath.replace(/\.mcmeta$/, ''), // .png.mcmetaから.pngに戻す
+            };
             
             if (mcmetaText) {
                 const mcmeta = JSON.parse(mcmetaText);
@@ -146,15 +155,12 @@ export class MCTextureLoader {
                 const fallbackFrames = Array.from({ length: fallbackFrameCount }, (_, i) => i);
 
                 // アニメーション情報があれば userData に保存
-                (texture.userData as TextureUserData) = {
-                    texture_id: textureId,  // (例: "#texture")
-                    texture_name: textureRef, // (例: "minecraft:block/stone")
-                    texture_path: mcmetaPath.replace(/\.mcmeta$/, ''), // .png.mcmetaから.pngに戻す
+                (texture.userData as TextureUserData) = Object.assign(texture.userData, {
                     animationDuration: fallbackFrametime * (anim.frames ? anim.frames.length : fallbackFrameCount), //総再生時間 レンダラーが参照
                     totalFrames: anim.frames ? anim.frames.length : fallbackFrameCount, // フレーム数
                     interpolate: anim.interpolate || false, // クロスフェーディングのフラグ
                     frames: anim.frames || fallbackFrames // フレーム配列自体も保存
-                };
+                });
                 //console.log(`[MCTextureLoader] Animated texture detected. ${textureRef}`);
             }
         } catch (e) {

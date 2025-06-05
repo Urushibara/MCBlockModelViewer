@@ -41,7 +41,7 @@ export class MinecraftJarLoader {
         // テスト用モックデータ
         if (isDebug) {
             switch(path){
-                case "assets/minecraft/models/block/coral_fan.json": {
+                case "assets/minecraft/models/block/coral_fans.json": {
                     let json = JSON.stringify(
                         {
                             "ambientocclusion": false,
@@ -54,7 +54,7 @@ export class MinecraftJarLoader {
                                     "shade": false,
                                     "faces": {
                                         "up": { "uv": [ 0, 0, 16, 16 ], "texture": "#fan", "rotation": 90 },
-                                        "down": { "uv": [ 0, 16, 16, 0 ], "texture": "#fan", "rotation": 270 }
+                                        "down": { /*"uv": [ 0, 16, 16, 0 ],*/ "texture": "#fan", "rotation": 270 }
                                     }
                                 }
                             ]
@@ -62,8 +62,9 @@ export class MinecraftJarLoader {
                     );
                     return json;
                 }
-                case "assets/minecraft/models/block/big_dripleaf.json": {
-                    let json = JSON.stringify({
+                case "assets/minecraft/models/block/big_dripleafe.json": {
+                    let json = JSON.stringify(
+{
     "parent": "block/block",
     "textures": {
         "top": "minecraft:block/big_dripleaf_top",
@@ -84,21 +85,21 @@ export class MinecraftJarLoader {
             "to": [ 16, 15, 0.002 ],
             "shade": false,
             "faces": {
-                "north":  { "uv": [ 0, 0, 16, 4 ], "texture": "#tip", "cullface": "north" },
+                "south":  { "uv": [ 16, 0, 0, 4 ], "texture": "#tip" }
             }
         },
         {   "from": [ 0, 11, 0 ],
             "to": [ 0.002, 15, 16 ],
             "shade": false,
             "faces": {
-                "west": { "uv": [ 0, 0, 16, 4 ], "texture": "#side", "cullface": "west" }
+                "east": { "uv": [ 16, 0, 0, 4 ], "texture": "#side" },
             }
         },
         {   "from": [ 15.998, 11, 0 ],
             "to": [ 16, 15, 16 ],
             "shade": false,
             "faces": {
-                "east": { "uv": [ 16, 0, 0, 4 ], "texture": "#side", "cullface": "east" },
+                "west": { "uv": [ 0, 0, 16, 4 ], "texture": "#side" }
             }
         },
         {   "from": [ 5, 0, 12 ],
@@ -119,9 +120,31 @@ export class MinecraftJarLoader {
                 "south": { "uv": [ 3, 0, 14, 16 ], "texture": "#stem" }
             }
         }
-    ]
+    ],
 }
-
+                    );
+                    return json;
+                }
+                case "assets/minecraft/models/block/oak_planks.json": {
+                    let json = JSON.stringify(
+                        {
+                            "textures": {
+                                "all": "minecraft:block/oak_planks"
+                            },
+                            "elements": [
+                                {   "from": [ 0, 0, 0 ],
+                                    "to": [ 16, 16, 16 ],
+                                    "faces": {
+                                        "down":  { "uv": [ 0, 0, 16, 16 ], "texture": "#all", "cullface": "down" },
+                                        "up":    { "uv": [ 0, 0, 16, 16 ], "texture": "#all", "cullface": "up" },
+                                        "north": { "uv": [ 0, 0, 16, 16 ], "texture": "#all", "cullface": "north" },
+                                        "south": { "uv": [ 0, 0, 16, 16 ], "texture": "#all", "cullface": "south" },
+                                        "west":  { "uv": [ 0, 0, 16, 16 ], "texture": "#all", "cullface": "west" },
+                                        "east":  { "uv": [ 0, 0, 16, 16 ], "texture": "#all", "cullface": "east" }
+                                    }
+                                }
+                            ]
+                        }
                     );
                     return json;
                 }

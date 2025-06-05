@@ -25,9 +25,7 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  align-items: flex-start; /* ← 上に寄せる */
-  justify-content: center; /* 横は真ん中のままでOKなら */
-  /*place-items: center;*/
+  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -65,7 +63,6 @@ button:focus-visible {
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
-  margin-top: 0;
 }
 
 @media (prefers-color-scheme: light) {

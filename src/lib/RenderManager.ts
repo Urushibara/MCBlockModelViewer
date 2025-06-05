@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { MCAnimatedMaterial } from './MCAnimatedMaterial'; // MCAnimatedMaterialをインポート
 
-// BlockMeshGroup クラスが THREE.Group を継承していることを想定
-// import { BlockMeshGroup } from './BlockMeshGroup'; // 必要であればインポート
+import { BlockMeshGroup } from './BlockMeshGroup'; // 必要であればインポート
 
 export class RenderManager {
 
@@ -51,8 +49,10 @@ export class RenderManager {
 
         const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
         
-        // カメラの初期位置（例）
-        const initialPosition = new THREE.Vector3(this.viewSize, this.viewSize * yAngle, this.viewSize);
+        // カメラの初期位置
+        this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
+/*
+        const initialPosition = this.camera.position;
 
         // 中心を原点にしたローカル位置に変換
         const relativePosition = initialPosition.clone().sub(this.scene.position);
@@ -62,7 +62,7 @@ export class RenderManager {
 
         // ワールド位置に戻す
         this.camera.position.copy(rotatedPosition.add(this.scene.position));
-
+*/
         // カメラは中心を向く
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
@@ -72,8 +72,8 @@ export class RenderManager {
     }
 
     initLighting() {
-        const dirLight = new THREE.DirectionalLight(0xffffff, Math.PI * 0.83); // 明るい白色の指向性ライト
-        dirLight.position.set(1.24, 2.25, -1).normalize(); // ライトの方向を設定
+        const dirLight = new THREE.DirectionalLight(0xffffff, Math.PI * 0.47); // 明るい白色の指向性ライト
+        dirLight.position.set(0.36, 0, -1).normalize(); // ライトの方向を設定
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.set(2048, 2048);
         const d = 50;
@@ -85,7 +85,16 @@ export class RenderManager {
         dirLight.shadow.bias = -0.0001;
         this.scene.add(dirLight);
 
-        const ambient = new THREE.AmbientLight(0xffffff, 1); // 白色環境光 (強め)
+        const dirLight2 = dirLight.clone();
+        dirLight2.position.set(-0.36, 0, 1).normalize();
+        this.scene.add(dirLight2);
+
+        const dirLight3 = dirLight.clone();
+        dirLight3.intensity = Math.PI * 0.8;
+        dirLight3.position.set(0, 1, 0).normalize();
+        this.scene.add(dirLight3);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5); // 白色環境光
         this.scene.add(ambient);
     }
 
@@ -148,12 +157,9 @@ export class RenderManager {
         const deltaTimeMs = delta * 1000; // MCAnimatedMaterial がミリ秒を期待するため変換
         
         // ----------------------------------------------------
-
-        // 既存の obj.updateAnimation や obj.tick の呼び出しも維持
-        // ただし、もし obj.updateAnimation が MCAnimatedMaterial.update を再び呼び出すなら冗長になる可能性あり
         this.objects.forEach(obj => {
-            if ('updateAnimation' in obj && typeof (obj as any).updateAnimation === 'function') {
-                (obj as any).updateAnimation(deltaTimeMs); // BlockMeshGroup がアニメーションを持つ場合
+            if ('updateAnimation' in obj && typeof (obj as BlockMeshGroup).updateAnimation === 'function') {
+                (obj as BlockMeshGroup).updateAnimation(deltaTimeMs); // BlockMeshGroup がMCAnimatedMaterialをカプセル化している
             }
         });
 
