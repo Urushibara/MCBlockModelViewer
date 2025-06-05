@@ -4,6 +4,16 @@
 import type { IBlockStateFile, IBlockOption, IVariants, IMultipart, ICase, ICondition } from './interfaces/blockState';
 
 /**
+ * UI表示のためにモデルとその選択情報をまとめた構造
+ */
+export interface IActiveModelGroup {
+    models: IBlockOption[]; // このグループに含まれるモデルの配列 (weightがある場合は複数)
+    conditionKey?: string; // Multipartの場合、このモデルグループが適用されたwhen条件のキー (例: "axis=y", "up=true,down=true")
+    isWeighted: boolean; // このグループがweightを持つモデルの集合であるか
+    // その他、UIで表示する際に役立つメタデータ
+}
+
+/**
  * `BlockStateManager` は、Minecraftの `blockstate.json` ファイルを解析し、
  * 指定されたブロックプロパティに基づいて表示すべきモデルを決定します。
  * Variants形式とMultipart形式の両方をサポートします。
