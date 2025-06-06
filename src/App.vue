@@ -9,33 +9,42 @@ import { MCTextureLoader } from '@/lib/MCTextureLoader';
 import { BlockStateManager } from '@/lib/BlockStateManager';
 import { BlockMeshGroup } from '@/lib/BlockMeshGroup';
 import { RenderManager } from '@/lib/RenderManager';
-import type { IBlockOption, IActiveModelGroup } from './lib/interfaces/blockState';
+import type { IBlockOption } from './lib/interfaces/blockState';
+import type { IActiveModelGroup, IPropertyOption, IPossibleProperty } from '@/lib/BlockStateManager';
 
 const $toast = useToast();
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 const renderCanvas = ref<HTMLCanvasElement | null>(null);
 
+// 主要クラスのインスタンス
 const jarLoader = new MinecraftJarLoader();
-const blockModelLoader = new BlockModelLoader(jarLoader);
-const textureLoader = new MCTextureLoader(jarLoader);
+const blockModelLoader = new BlockModelLoader(jarLoader); // jarLoaderを注入
+const textureLoader = new MCTextureLoader(jarLoader); // jarLoaderを注入
 const blockStateManager = new BlockStateManager();
 const blockMeshGroup = ref<BlockMeshGroup | null>(null);
 const renderManager = ref<RenderManager | null>(null);
 
-// UI連動用
+// UI連動用 リアクティブな状態
 const selectedBlockName = ref<string | null>(null);
 const availableBlocks = ref<string[]>([]);
 const availableNamespaces = ref<string[]>([]);
 const selectedNamespace = ref<string>('minecraft');
 
 // BlockStateManager が提供するUI生成用データ
-const possibleProperties = ref<Record<string, any>>({});
-const selectedProperties = ref<Record<string, string>>({});
+const possibleProperties = ref<IPossibleProperty>({});
+const selectedProperties = ref<Record<string, string | null>>({});
 
 // 各モデルグループの選択されたインデックスを管理するMap
 // Key: conditionKey (string), Value: selected model index (number)
 const selectedModelGroupIndices = ref<Map<string, number>>(new Map());
+
+// ロードされているリソースパックの表示と並べ替え用
+interface LoadedResourcePackItem {
+    id: string; // MinecraftJarLoaderで使う内部ID
+    name: string; // UI表示用のファイル名
+}
+const loadedResourcePacks = ref<LoadedResourcePackItem[]>([]);
 
 // BlockStateManager から現在選択されているプロパティに基づいてモデルグループリストを取得
 const activeModelGroups = computed<IActiveModelGroup[]>(() => {
@@ -43,72 +52,151 @@ const activeModelGroups = computed<IActiveModelGroup[]>(() => {
         return [];
     }
     const groups = blockStateManager.getActiveModels(selectedProperties.value);
-    console.log("activeModelGroups computed result:", groups); 
-    return blockStateManager.getActiveModels(selectedProperties.value);
+    console.log("activeModelGroups computed result:", groups);
+    return groups;
 });
-
-const getSelectedModelGroupIndices = computed(() => 
-    selectedModelGroupIndices.get(group.conditionKey || '') || 0
-);
 
 // RenderManager の初期化と THREE.js シーンへの追加
 onMounted(() => {
     if (renderCanvas.value) {
         renderManager.value = new RenderManager(renderCanvas.value);
-        window.lights = renderManager.value.lights();
     }
 });
 
-const onFileChange = async (event: Event) => {
+// Vanilla JARファイル変更時の処理
+const onVanillaFileChange = async (event: Event) => {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
     try {
-        await jarLoader.loadFromFile(file);
-
-        // 選択可能な namespace の一覧を取得する(resouce pack,MODにも対応)
-        availableNamespaces.value = jarLoader.getAvailableNamespaces();
-        if (availableNamespaces.value.includes('minecraft')) {
-            selectedNamespace.value = 'minecraft';
-        } else if (availableNamespaces.value.length > 0) {
-            selectedNamespace.value = availableNamespaces.value[0];
-        } else {
-            selectedNamespace.value = '';
-        }
-
-        // 選択可能なブロックの一覧を取得する
-        availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
-
-        //デフォルトブロック
-        const debug_target = isDebug ? "grass_block" : "grass_block";
-
-        if (availableBlocks.value.includes(debug_target)) {
-            // 指定ブロックをデフォルトに設定
-            selectedBlockName.value = debug_target;
-        } else {
-            // または `availableBlocks.value[0] || null;` に戻す
-            selectedBlockName.value = availableBlocks.value[0] || null;
-        }
-
-        if (!selectedBlockName.value) {
-            $toast.open({ message: 'No blockstate file was found in the loaded JAR file.', type: 'error' });
-            if (blockMeshGroup.value) {
-                renderManager.value?.removeObject(blockMeshGroup.value);
-                blockMeshGroup.value.dispose();
-                blockMeshGroup.value = null;
-            }
-        }
-
+        const baseName = file.name.replace(/\.zip$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_'); // ファイル名として使える文字に変換
+        await jarLoader.addZipFile(file, `Minecraft ${baseName}`);
+        $toast.open({ message: 'Vanilla JAR loaded.', type: 'success' });
+        updateListsAndUI();
     } catch (err: any) {
-        $toast.open({ message: 'Failed to load JAR file:　' + err.message, type: 'error' });
+        $toast.open({ message: `Failed to load Vanilla JAR file: ${err.message}`, type: 'error' });
         console.error(err);
     }
 };
 
+// リソースパックファイル変更時の処理 (複数選択対応)
+const onResourcePackFileChange = async (event: Event) => {
+    const files = (event.target as HTMLInputElement).files;
+    if (!files || files.length === 0) return;
+
+    let successfulLoads = 0;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+            // ファイル名をベースにユニークなIDを生成
+            // 接頭辞 'rp_' を付け、拡張子を除去し、タイムスタンプとランダム文字列でユニークに
+            const baseName = file.name.replace(/\.zip$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_'); // ファイル名として使える文字に変換
+            const id = `rp_${baseName}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            await jarLoader.addZipFile(file, id);
+            successfulLoads++;
+        } catch (error: any) {
+            $toast.open({ message: `Failed to load resource pack "${file.name}": ${error.message}`, type: 'error' });
+            console.error(error);
+        }
+    }
+    if (successfulLoads > 0) {
+        $toast.open({ message: `${successfulLoads} resource pack(s) loaded.`, type: 'success' });
+        updateListsAndUI();
+    }
+};
+
+// UIリストと内部状態をまとめて更新する関数
+const updateListsAndUI = () => {
+    // jarLoaderのIDリストは優先度が低いものから順（配列の最初が優先度低い）
+    // UI表示では「上にあるものが優先度高い」としたいので、逆順にして表示する
+    const currentLoaderOrderIds = jarLoader.getLoadedZipIds();
+    loadedResourcePacks.value = currentLoaderOrderIds.map(id => {
+        let name = id;
+        if (id.startsWith('rp_')) {
+            // 'rp_'プレフィックスと末尾のタイムスタンプ+ランダム文字列を除去
+            const parts = id.substring(3).split('_');
+            if (parts.length >= 3) { // 基本ファイル名 + タイムスタンプ + ランダム文字列
+                name = parts.slice(0, -2).join('_');
+            } else {
+                name = parts.join('_');
+            }
+        }
+        return { id: id, name: name };
+    }).reverse(); // UI表示のために優先度が高いものを先頭にする
+
+    // 名前空間とブロックリストの更新
+    availableNamespaces.value = jarLoader.getAvailableNamespaces();
+    if (!availableNamespaces.value.includes(selectedNamespace.value) && availableNamespaces.value.length > 0) {
+        selectedNamespace.value = availableNamespaces.value[0];
+    } else if (availableNamespaces.value.length === 0) {
+        selectedNamespace.value = '';
+    }
+
+    availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
+
+    // デフォルトブロックの選択（初回またはnamespace変更時）
+    const debug_target = isDebug ? "grass_block" : "grass_block";
+    if (availableBlocks.value.includes(debug_target)) {
+        selectedBlockName.value = debug_target;
+    } else if (availableBlocks.value.length > 0) {
+        selectedBlockName.value = availableBlocks.value[0];
+    } else {
+        selectedBlockName.value = null;
+    }
+
+    if (!selectedBlockName.value) {
+        $toast.open({ message: 'No blockstate file was found in the loaded files for the current namespace.', type: 'info' });
+        if (blockMeshGroup.value) {
+            renderManager.value?.removeObject(blockMeshGroup.value);
+            blockMeshGroup.value.dispose();
+            blockMeshGroup.value = null;
+        }
+    }
+};
+
+// ロード済みリソースパックの順序変更（上へ移動）
+const moveResourcePackUp = (index: number) => {
+    if (index > 0) {
+        const itemToMove = loadedResourcePacks.value.splice(index, 1)[0];
+        loadedResourcePacks.value.splice(index - 1, 0, itemToMove);
+        applyNewResourcePackOrder();
+    }
+};
+
+// ロード済みリソースパックの順序変更（下へ移動）
+const moveResourcePackDown = (index: number) => {
+    if (index < loadedResourcePacks.value.length - 1) {
+        const itemToMove = loadedResourcePacks.value.splice(index, 1)[0];
+        loadedResourcePacks.value.splice(index + 1, 0, itemToMove);
+        applyNewResourcePackOrder();
+    }
+};
+
+// 新しいリソースパックの順序をMinecraftJarLoaderに適用し、表示を更新
+const applyNewResourcePackOrder = async () => {
+    try {
+        // UIでの表示順（loadedResourcePacks）は「上にあるものが優先度高い」
+        // jarLoader.reorderZipsは「最後の要素が最高優先度」を期待する
+        // そのため、UIのリストを逆順にして渡す
+        const loaderOrderIds = loadedResourcePacks.value.map(item => item.id).reverse();
+        jarLoader.reorderZips(loaderOrderIds);
+        $toast.open({ message: 'Resource pack order updated.', type: 'info' });
+
+        // リソースパックの順序が変わったので、現在表示中のブロックを再ロード
+        if (selectedBlockName.value && renderManager.value) {
+            $toast.open({ message: 'Reloading block due to resource pack order change...', type: 'info', duration: 1500 });
+            await loadAndSetBlockState();
+        }
+    } catch (error: any) {
+        $toast.open({ message: `Failed to reorder resource packs: ${error.message}`, type: 'error' });
+        console.error(error);
+    }
+};
+
+
 // selectedNamespace の変更を監視
 watch(selectedNamespace, async (newNamespace) => {
-    if (!jarLoader.zip) return;
-
+    // jarLoader.zip のチェックは不要、loadedZips の有無は内部でチェックされる
     availableBlocks.value = jarLoader.getBlockstateNames(newNamespace);
     if (availableBlocks.value.length > 0) {
         selectedBlockName.value = availableBlocks.value[0];
@@ -135,18 +223,17 @@ watch(selectedBlockName, async (newBlockName) => {
 const onPropertyChange = () => {
     // プロパティが変更されたら、各モデルグループの選択インデックスをリセット
     selectedModelGroupIndices.value.clear(); // 全てクリア
-    applyBlockState();
+    // applyBlockState() は以下の watch がトリガーするので直接は呼び出さない
 };
 
-
+// activeModelGroups, selectedProperties, selectedModelGroupIndices の変更を監視
 watch(
     [activeModelGroups, selectedProperties, selectedModelGroupIndices],
-    () => { 
+    () => {
         applyBlockState();
     },
     { deep: true }
 );
-
 
 // 現在選択されているブロック状態とモデルをロードし、RenderManagerに設定する
 const loadAndSetBlockState = async () => {
@@ -186,12 +273,12 @@ const loadAndSetBlockState = async () => {
     selectedModelGroupIndices.value = new Map();
     initializeSelectedProperties(); // UIの初期値を設定
 
-    //await applyBlockState(); // 初期状態のモデルを表示 ブロック選択が監視されているので不要
+    // await applyBlockState(); // 初期状態のモデルを表示 ブロック選択が監視されているので不要
 };
 
 // possiblePropertiesに基づいてselectedPropertiesの初期値を設定するヘルパー関数
-const initializeSelectedProperties = async () => { // async に変更
-    const newSelectedProps: Record<string, string> = {};
+const initializeSelectedProperties = async () => {
+    const newSelectedProps: Record<string, string | null> = {};
     const propNames = Object.keys(possibleProperties.value);
 
     // Step 1: まず BlockStateManager が推奨するデフォルト値で selectedProperties を初期化
@@ -201,34 +288,26 @@ const initializeSelectedProperties = async () => { // async に変更
     }
 
     // BlockStateManager に現在のデフォルト値を一旦設定（内部キャッシュのため）
-    // これにより getActiveModels が正しいコンテキストで呼び出される
-    // このステップは、後続の getActiveModels 呼び出しのために重要
     selectedProperties.value = { ...newSelectedProps }; // Vueのリアクティブオブジェクトに反映
 
     // Step 2: 現在のデフォルト値でモデルを取得し、表示されるモデルがあるかチェック
-    const defaultModels = blockStateManager.getActiveModels(selectedProperties.value); // currentModelsInVariant.value はまだ更新されていない可能性があるため直接呼び出す
+    const defaultModels = blockStateManager.getActiveModels(selectedProperties.value);
 
-    // モデルが一つも取得できない場合 (または、特定の条件で「実質的に見えない」と判断する場合)
-    // 例えば、redstone_wire_dot のように、モデルは存在するが非常に小さい場合は、ここで別途判定が必要になる可能性もありますが
-    // まずは単純に activeModels.length === 0 でチェックします
     if (defaultModels.length === 0) {
         console.log("Default properties resulted in no visible models. Attempting to adjust first property.");
 
         // Step 3: 最初のプロパティを見つけて、デフォルト以外の値で試す
-        let adjusted = false;
         if (propNames.length > 0) {
-            const firstPropName = propNames[0];
-            const firstPropData = possibleProperties.value[firstPropName];
+            const firstPropName: string = propNames[0];
+            const firstPropData: IPropertyOption[] = possibleProperties.value[firstPropName];
 
-            // 現在のデフォルト値（通常は `false` や `none`）以外のオプションを探す
-            const currentDefault = newSelectedProps[firstPropName];
+            const currentDefault: string = newSelectedProps[firstPropName];
             const alternativeOption = firstPropData.options.find(
-                option => option.value !== currentDefault // 現在のデフォルト値と異なる値を探す
+                (option: string) => option.value !== currentDefault
             );
 
             if (alternativeOption) {
                 newSelectedProps[firstPropName] = alternativeOption.value;
-                adjusted = true;
                 console.log(`Adjusted '${firstPropName}' to '${alternativeOption.value}' for better initial visibility.`);
             } else {
                 console.log(`No alternative found for '${firstPropName}'. Keeping default.`);
@@ -238,17 +317,15 @@ const initializeSelectedProperties = async () => { // async に変更
 
     // 最終的な決定値を selectedProperties に反映
     selectedProperties.value = newSelectedProps;
-    
-    
+
     const currentActiveGroups = blockStateManager.getActiveModels(selectedProperties.value);
     selectedModelGroupIndices.value.clear(); // まず既存の選択をクリア
 
     for (const group of currentActiveGroups) {
         if (group.models.length > 0) {
-            // weightを持つ最初のモデル、または単純に最初のモデルをデフォルト選択
             let defaultIndex = 0;
             if (group.isWeighted) {
-                const weightedIndex = group.models.findIndex(model => typeof model.weight === 'number');
+                const weightedIndex = group.models.findIndex(model => typeof model.weight === 'number' && model.weight > 0);
                 if (weightedIndex !== -1) {
                     defaultIndex = weightedIndex;
                 }
@@ -256,8 +333,6 @@ const initializeSelectedProperties = async () => { // async に変更
             selectedModelGroupIndices.value.set(group.conditionKey || '', defaultIndex);
         }
     }
-
-    // これにより、watch(selectedProperties) が発火し、applyBlockState が呼び出される
 };
 
 // 現在選択されているプロパティに基づいてモデルを更新する
@@ -268,27 +343,23 @@ const applyBlockState = async () => {
 
     const groupsToRender: IBlockOption[] = []; // 最終的に BlockMeshGroup に渡すモデルの配列
 
-    // `activeModelGroups` (computed) から最新のモデルグループを取得
-    const currentActiveModelGroups = activeModelGroups.value; 
+    const currentActiveModelGroups = activeModelGroups.value;
 
-    // 各モデルグループについて、選択されたモデルを抽出
     for (const group of currentActiveModelGroups) {
-        // 各グループ内で選択された（またはデフォルトの）モデルを一つだけ groupsToRender に追加
         if (group.models.length > 0) {
             const selectedIndexForGroup = selectedModelGroupIndices.value.get(group.conditionKey || '') || 0;
             if (selectedIndexForGroup < group.models.length) {
                 groupsToRender.push(group.models[selectedIndexForGroup]);
             } else {
-                // インデックスが範囲外の場合、最初のモデルをデフォルトとして選択
                 groupsToRender.push(group.models[0]);
                 selectedModelGroupIndices.value.set(group.conditionKey || '', 0); // UIもリセット
-                $toast.open({message: `Model index for condition '${group.conditionKey}' out of bounds, resetting to 0.`, type: "warning"});
+                $toast.open({ message: `Model index for condition '${group.conditionKey}' out of bounds, resetting to 0.`, type: "warning" });
             }
         }
     }
 
     console.log("Selected properties:", JSON.stringify(selectedProperties.value));
-    //console.log("Active model groups:", JSON.stringify(currentActiveModelGroups));
+    console.log("Active model groups:", JSON.stringify(currentActiveModelGroups));
     console.log("Models to render:", JSON.stringify(groupsToRender));
 
     if (groupsToRender.length > 0) {
@@ -306,22 +377,7 @@ const applyBlockState = async () => {
     }
 };
 
-const doesGroupMatchSelectedProperty = (group: IActiveModelGroup, propName: string, selectedValue: string): boolean => {
-    // conditionKey がない場合は常にマッチ（"always applied"）
-    if (!group?.conditionKey) {
-        return false; // 条件キーがない場合は、特定のプロパティとは関連付けないと判断
-    }
-    // 例: "facing=north,powered=true" の場合、"facing" も "powered" も含むと判断
-    // propName + "=" の形式で検索することで、より正確にプロパティ名をチェック
-    return group.conditionKey.includes(`${propName}=`);
-};
-
-/**
- * モデルグループの conditionKey が、指定されたプロパティ名を含んでいるか判定します。
- * @param group 判定対象の IActiveModelGroup
- * @param propName 比較対象のプロパティ名
- * @returns boolean
- */
+// モデルグループの conditionKey が、指定されたプロパティ名を含んでいるか判定します。
 const doesGroupConditionContainProperty = (group: IActiveModelGroup, propName: string): boolean => {
     if (group === undefined || group === null) {
         return false;
@@ -329,68 +385,48 @@ const doesGroupConditionContainProperty = (group: IActiveModelGroup, propName: s
     if (!group?.conditionKey) {
         return false; // 条件キーがない場合は、特定のプロパティとは関連付けないと判断
     }
-    // 例: "facing=north,powered=true" の場合、"facing" も "powered" も含むと判断
-    // propName + "=" の形式で検索することで、より正確にプロパティ名をチェック
     return group.conditionKey.includes(`${propName}=`);
 };
 
-// 新しく作成する Computed プロパティ
 // 各プロパティの下に表示するモデルグループをフィルタリング
 const modelGroupsByProperty = computed<Record<string, IActiveModelGroup[]>>(() => {
     const groupsMap: Record<string, IActiveModelGroup[]> = {};
 
-    // まず、全ての possibleProperties のキーを初期化
     Object.keys(possibleProperties.value).forEach(propName => {
         groupsMap[propName] = [];
     });
 
-    // activeModelGroups をループし、各プロパティに関連付ける
     activeModelGroups.value.forEach(group => {
-        // `conditionKey` を解析し、含まれるプロパティ名を特定
         if (group.conditionKey) {
-            const conditions = group.conditionKey.split(',').map(c => c.trim()); // 例: ["facing=north", "powered=true"]
-            
-            let foundRelatedProp = false; // 少なくとも一つのプロパティに関連付けられたか
+            const conditions = group.conditionKey.split(',').map(c => c.trim());
             for (const conditionPart of conditions) {
                 const [propNameInCondition] = conditionPart.split('=');
                 if (propNameInCondition && possibleProperties.value[propNameInCondition]) {
-                    // そのプロパティが `possibleProperties` に存在すれば、関連付ける
                     groupsMap[propNameInCondition].push(group);
-                    foundRelatedProp = true;
                 }
             }
-            // もしどのプロパティにも関連付けられなかった場合（例: 空の conditionKeyや未知のプロパティ名）
-            // または、"always applied" のような条件なしのグループは、独立したセクションにまとめる
-            // 今回は、doesGroupConditionContainProperty を使うので、そちらで制御
         }
     });
-
     return groupsMap;
 });
 
 // 独立したモデルグループ（どのプロパティにも直接紐づかないもの）を特定するComputed
 const independentModelGroups = computed<IActiveModelGroup[]>(() => {
     const independent: IActiveModelGroup[] = [];
-    const associatedGroupKeys = new Set<string>(); // すでにプロパティに関連付けられたグループの conditionKey を保持
+    const associatedGroupKeys = new Set<string>();
 
-    // まず、どのプロパティに関連付けられたかを確認
     Object.keys(modelGroupsByProperty.value).forEach(propName => {
         modelGroupsByProperty.value[propName].forEach(group => {
-            associatedGroupKeys.add(group.conditionKey || 'always_applied'); // conditionKey がない場合は特殊なキーを使う
+            associatedGroupKeys.add(group.conditionKey || ''); // conditionKeyがない場合は空文字列で登録
         });
     });
 
-    // activeModelGroups の中で、どのプロパティにも関連付けられなかったものを抽出
     activeModelGroups.value.forEach(group => {
-        const groupKey = group.conditionKey || 'always_applied';
+        const groupKey = group.conditionKey || '';
         if (!associatedGroupKeys.has(groupKey)) {
             independent.push(group);
         }
     });
-
-    // ここで、条件なしのグループも独立グループとして扱うかを検討。
-    // `doesGroupConditionContainProperty` で `false` を返せば、自動的に独立グループになる。
-    // それが望ましい挙動。
     return independent;
 });
 
@@ -419,144 +455,281 @@ const saveAsImage = () => {
     link.click();
     document.body.removeChild(link);
 };
-
 </script>
 
 <template>
-<h2>Minecraft Block Model Viewer</h2>
-<div class="ui-box">
-    <div>
-        <label>Source file (.jar):</label><input type="file" @change="onFileChange" accept=".jar" />
-    </div>
-    <div>
-        <label>Namespace:</label>
-        <select v-model="selectedNamespace">
-            <option v-for="ns in availableNamespaces" :key="ns" :value="ns">
-                {{ ns }}
-            </option>
-        </select>
-    </div>
-    <div>
-        <label>Block:</label>
-        <select v-model="selectedBlockName">
-            <option v-for="block in availableBlocks" :key="block" :value="block">
-                {{ block }}
-            </option>
-        </select>
-    </div>
+    <h2>Minecraft Block Model Viewer</h2>
+    <div class="main-container">
+        <div class="controls-panel">
+            <div class="ui-box">
+                <div>
+                    <label>Vanilla file:</label><input type="file" @change="onVanillaFileChange" accept=".jar" />
+                </div>
+                <div>
+                    <label>Resources:</label><input type="file" @change="onResourcePackFileChange" accept=".zip,.jar" multiple />
+                </div>
+            </div>
 
-    <label>Properties:</label>
-    <div class="properties-box">
-        <div v-if="Object.keys(possibleProperties).length > 0">
-            <div v-for="(propData, propName) in possibleProperties" :key="propName" class="property">
-                <label>{{ propName }}:</label>
-                <select v-model="selectedProperties[propName]" @change="onPropertyChange">
-                    <option v-for="option in propData.options" :key="option.value" :value="option.value">
-                        {{ option.value }}
-                    </option>
-                </select>
+            <hr />
+            <h4>Loaded Resources (Priority: Top is highest)</h4>
+            <div class="resource-pack-list">
+                <div v-for="(item, index) in loadedResourcePacks" :key="item.id" class="resource-pack-item">
+                    <span>{{ item.name }}</span>
+                    <button @click="moveResourcePackUp(index)" :disabled="index === 0">↑</button>
+                    <button @click="moveResourcePackDown(index)" :disabled="index === loadedResourcePacks.length - 1">↓</button>
+                </div>
+                <p v-if="loadedResourcePacks.length === 0" class="no-files-message">No resource packs loaded. Please upload files.</p>
+            </div>
 
-                <div class="nested-model-group-wrapper" v-if="activeModelGroups.length > 0">
-                    <div v-for="(group, groupIndex) in activeModelGroups"
-                            :key="group.conditionKey || 'group-nested-' + propName + '-' + groupIndex">
-                        <div v-if="doesGroupConditionContainProperty(group, propName)" class="model-group-box">
-                            <div v-if="group.models.length > 1">
-                                <select 
-                                    :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                    @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
-                                    <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
-                                        {{ JSON.stringify(modelOption) }} 
-                                    </option>
-                                </select>
+            <hr />
+            <div class="ui-box">
+                <div>
+                    <label>Namespace:</label>
+                    <select v-model="selectedNamespace">
+                        <option v-for="ns in availableNamespaces" :key="ns" :value="ns">
+                            {{ ns }}
+                        </option>
+                    </select>
+                </div>
+                <div>
+                    <label>Block:</label>
+                    <select v-model="selectedBlockName">
+                        <option v-for="block in availableBlocks" :key="block" :value="block">
+                            {{ block }}
+                        </option>
+                    </select>
+                    <p v-if="availableBlocks.length === 0 && selectedNamespace" class="no-files-message">No blockstates found in "{{ selectedNamespace }}" namespace.</p>
+                </div>
+            </div>
+
+            <hr />
+            <label>Properties:</label>
+            <div class="properties-box">
+                <div v-if="Object.keys(possibleProperties).length > 0">
+                    <div v-for="(propData, propName) in possibleProperties" :key="propName" class="property">
+                        <label>{{ propName }}:</label>
+                        <select v-model="selectedProperties[propName]" @change="onPropertyChange">
+                            <option v-for="option in propData.options" :key="option.value" :value="option.value">
+                                {{ option.value }}
+                            </option>
+                        </select>
+
+                        <div class="nested-model-group-wrapper" v-if="modelGroupsByProperty[propName]?.length > 0">
+                            <div v-for="(group, groupIndex) in modelGroupsByProperty[propName]"
+                                :key="group.conditionKey || 'group-nested-' + propName + '-' + groupIndex">
+                                <div v-if="group.models.length > 1" class="model-group-select">
+                                    <select
+                                        :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
+                                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))">
+                                        <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
+                                            {{ JSON.stringify(modelOption) }}
+                                        </option>
+                                    </select>
+                                </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else class="no-properties-message">
+                    <span>No properties available for this block.</span>
+                </div>
+                
+                <div v-if="independentModelGroups.length > 1" class="independent-models-section">
+                    <h4>Independent Models:</h4>
+                    <div v-for="(group, groupIndex) in independentModelGroups"
+                            :key="group.conditionKey || 'group-other-' + groupIndex"
+                            class="model-group-box">
+                        <div v-if="group.models.length > 1" class="model-group-select">
+                            <select
+                                :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
+                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))"
+                            >
+                                <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
+                                    {{ JSON.stringify(modelOption) }}
+                                </option>
+                            </select>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div v-else>
-            <span>No properties available for this block.</span>
-        </div>
-        <div v-if="independentModelGroups.length > 0">
-            <div v-for="(group, groupIndex) in independentModelGroups" 
-                    :key="group.conditionKey || 'group-other-' + groupIndex" 
-                    class="model-group-box">
-                <div v-if="group.models.length > 1">
-                    <select 
-                        :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))"
-                        v-if="group.isWeighted"
-                    >
-                        <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
-                            {{ JSON.stringify(modelOption) }} 
-                        </option>
-                    </select>
-                </div>
+
+        <div class="render-section">
+            <canvas class="render-box" ref="renderCanvas" :width="canvasSize" :height="canvasSize" :style="{ width: canvasSize + 'px', height: canvasSize + 'px' }"></canvas>
+            <div class="size-ui-box">
+                <input type="radio" id="size1" name="canvasSize" value="300" v-model.number="canvasSize">
+                <label for="size1">300x300px</label>
+                <input type="radio" id="size2" name="canvasSize" value="600" v-model.number="canvasSize">
+                <label for="size2">600x600px</label>
+                <button @click="saveAsImage">Save as PNG</button>
             </div>
         </div>
     </div>
-</div>
-<canvas class="render-box" ref="renderCanvas" :width="canvasSize" :height="canvasSize" :style="{ width: canvasSize + 'px', height: canvasSize + 'px' }"></canvas>
-<div class="size-ui-box">
-    <input type="radio" id="size1" name="canvasSize" value="300" v-model.number="canvasSize">
-    <label for="size1">300x300px</label>
-    <input type="radio" id="size2" name="canvasSize" value="600" v-model.number="canvasSize">
-    <label for="size2">600x600px</label>
-    <button @click="saveAsImage">Save as PNG</button>
-</div>
 </template>
 
 <style scoped>
-/* 既存のスタイルはそのまま */
-.ui-box input,
-.ui-box select,
-.properties-box select {
-    margin-left: 2em;
-    min-width: 20em;
+.main-container {
+    display: flex;
+    gap: 20px; /* コントロールパネルとレンダリングエリアの間のスペース */
+    justify-content: left;
+    align-items: flex-start;
+}
+
+.controls-panel {
+    flex-shrink: 0; /* 縮まないようにする */
+    width: 450px; /* コントロールパネルの固定幅 */
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.render-section {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
 }
 
 .ui-box {
-    width: 600px;
+    margin-bottom: 15px;
     text-align: left;
+}
+
+.ui-box > div {
+    margin-bottom: 8px;
 }
 
 .ui-box label {
     display: inline-block;
-    min-width: 6em;
+    min-width: 100px; /* ラベルの幅を統一 */
+    text-align: right;
+    margin-right: 10px;
 }
 
+.ui-box input[type="file"],
+.ui-box select {
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1em;
+}
+
+/* Resource Pack List */
+.resource-pack-list {
+    border: 1px dashed #a0a0a0;
+    padding: 10px;
+    min-height: 80px;
+    max-height: 200px; /* 高さを制限してスクロール可能にする */
+    overflow-y: auto; /* 縦スクロールを有効にする */
+    border-radius: 4px;
+}
+
+.resource-pack-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    padding: 3px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    font-size: 0.9em;
+    background-color: #3b3b3b;
+}
+
+.resource-pack-item span {
+    flex-grow: 1;
+    margin-right: 10px;
+    word-break: break-all; /* 長いファイル名でも折り返す */
+    text-align: right;
+}
+
+.resource-pack-item button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-left: 5px;
+    cursor: pointer;
+    font-size: 0.8em;
+    transition: background-color 0.2s ease;
+}
+
+.resource-pack-item button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.resource-pack-item button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.no-files-message {
+    color: #888;
+    text-align: center;
+    padding: 10px;
+}
+
+/* Properties Box */
 .properties-box {
     border: 1px solid #ACACAC;
     padding: 0.5em;
     margin-top: 1em;
-    display: flex;
+    border-radius: 4px;
+    text-align: left;
 }
 
-.properties-box label {
-    display: inline-block;
-    min-width: 5em;
+.properties-box .property {
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px dotted #eee;
 }
 
-.propery, .properties-box > div {
-    flex-direction: column;
+.properties-box .property:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
 }
 
-/*
-.model-group-box {
-    border: 1px dashed #ccc;
-    padding: 0;
-    margin-top: 0.5em;
+.properties-box .property label {
+    min-width: 90px;
+    text-align: right;
+    margin-right: 10px;
+    display:inline-block;
 }
-*/
+
+.properties-box .property select {
+    min-width: 150px;
+}
 
 .nested-model-group-wrapper {
-    margin-left: 6em;
+    margin-left: 100px; /* プロパティラベルの幅に合わせてインデント */
+    margin-top: 5px;
+    padding-left: 10px;
 }
 
-.size-ui-box {
-    width: 600px;
+.model-group-select select {
+    width: calc(100% - 10px); /* 親要素の幅に合わせて調整 */
+    margin-top: 5px;
 }
 
+.independent-models-section {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed #a0a0a0;
+}
+
+.independent-models-section h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.no-properties-message {
+    padding: 10px;
+    text-align: center;
+    color: #888;
+}
+
+/* Render Box */
 .render-box {
     background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAAAAABX3VL4AAAADklEQVQIHWPYXc9QvxsAB2ICdaBJUyUAAAAASUVORK5CYII=);
     background-size: 12px 12px;
@@ -565,7 +738,54 @@ const saveAsImage = () => {
     display: block;
     position: relative;
     line-height: 1px;
-    margin: auto;
+    /* margin: auto; */ /* flexコンテナ内で中央寄せは不要に */
     margin-top: 1em;
+    border: 1px solid #ccc; /* 境界線を追加 */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2); /* 影を追加 */
+}
+
+.size-ui-box {
+    width: 100%; /* 親要素の幅に合わせる */
+    text-align: center;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.size-ui-box label {
+    margin-right: 10px;
+}
+
+.size-ui-box input[type="radio"] {
+    margin-right: 5px;
+}
+
+.size-ui-box button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-left: 20px;
+    transition: background-color 0.2s ease;
+}
+
+.size-ui-box button:hover {
+    background-color: #218838;
+}
+
+hr {
+    margin: 20px 0;
+    border: 0;
+    border-top: 1px solid #eee;
+}
+
+h2, h3 {
+    text-align: center;
+    margin-bottom: 15px;
 }
 </style>

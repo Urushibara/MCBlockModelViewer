@@ -13,6 +13,20 @@ export interface IActiveModelGroup {
     // その他、UIで表示する際に役立つメタデータ
 }
 
+export interface IPropertyOption {
+    value: string,
+    hasMultipleModels: boolean
+}
+
+export interface IPossibleProperty {
+    [propName: string]: {
+        type: 'string',
+        values: Set<string>,
+        defaultValue: string | null,
+        options: IPropertyOption[]
+    }
+}
+
 /**
  * `BlockStateManager` は、Minecraftの `blockstate.json` ファイルを解析し、
  * 指定されたブロックプロパティに基づいて表示すべきモデルを決定します。
@@ -125,19 +139,12 @@ export class BlockStateManager {
      * このメソッドは、パフォーマンス向上のため結果をキャッシュします。
      * @returns プロパティ名 -> `{ type: string, values: Set<string>, defaultValue: string | null, options: { value: string, hasMultipleModels: boolean }[] }` のマップ
      */
-    public getPossibleProperties(): {
-        [propName: string]: {
-            type: 'string',
-            values: Set<string>,
-            defaultValue: string | null,
-            options: { value: string, hasMultipleModels: boolean }[]
-        }
-    } {
+    public getPossibleProperties(): IPossibleProperty {
         if (this._cachedPossibleProperties) {
             return this._cachedPossibleProperties;
         }
 
-        const possibleProps: ReturnType<BlockStateManager['getPossibleProperties']> = {};
+        const possibleProps: IPossibleProperty = {};
 
         /**
          * プロパティ名と値を追加するヘルパー関数。
@@ -289,13 +296,13 @@ export class BlockStateManager {
      * @param selectedProperties - UIで選択されたプロパティとその値のマップ (例: `{ "facing": "north", "half": "bottom" }`)
      * @returns 適用されるモデルのリスト。各オブジェクトは `IBlockOption` 形式。
      */
-    public getActiveModels(selectedProperties: { [key: string]: string } = {}): IBlockOption[] {
+    public getActiveModels(selectedProperties: { [key: string]: string } = {}): IActiveModelGroup[] {
         if (!this.blockStateJson) {
             //console.warn("[BlockStateManager] No block state JSON loaded. Call setBlockState() first.");
             return [];
         }
 
-        const currentSelectedProps: { [key: string]: string } = {};
+        const currentSelectedProps: { [key: string]: string } = { "": ""};
         const possibleProps = this.getPossibleProperties();
 
         // 選択されたプロパティを補完またはデフォルト値で埋める
@@ -337,7 +344,7 @@ export class BlockStateManager {
         // ソート済みのselectedPropertiesのキー=値のペア配列
         const sortedSelectedPropPairs = Object.keys(currentSelectedProps)
             .sort()
-            .map(p => `${p}=${currentSelectedProps[p]}`);
+            .map(p => p ? `${p}=${currentSelectedProps[p]}`: '');
         const selectedPropsCount = sortedSelectedPropPairs.length;
 
         for (const variantKey in variants) {
@@ -366,7 +373,7 @@ export class BlockStateManager {
         let modelsToReturn: IBlockOption[];
         let conditionKeyToUse: string | undefined;
 
-        if (bestMatchingVariantKey) {
+        if (bestMatchingVariantKey != null) {
             modelsToReturn = Array.isArray(variants[bestMatchingVariantKey]) ? variants[bestMatchingVariantKey] : [variants[bestMatchingVariantKey]];
             conditionKeyToUse = bestMatchingVariantKey; // マッチしたvariantKeyをconditionKeyとする
         } else {

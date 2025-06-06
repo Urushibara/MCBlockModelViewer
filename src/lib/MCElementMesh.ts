@@ -39,7 +39,7 @@ export class MCElementMesh extends THREE.Object3D {
     // 処理対象のモデル要素データ (オリジナルMinecraft座標を保持)
     private _element: ModelElement;
     private _origElement: ModelElement; // バックアップ用
-    // マテリアルの染色用
+    // マテリアルの追加オプション
     private _diffuseColors = [
         { name: "block/redstone_dust", color: 0xFC3100 },
         { name: "block/lily_pad", color: 0x208030 },
@@ -57,7 +57,11 @@ export class MCElementMesh extends THREE.Object3D {
         { name: "block/leaf_litter", color: 0xA17448 },
         { name: "_leaves", color: 0x71A74D },
         { name: "stonecutter", color: 0xFFFFFF },
+        { name: "block/respawn_anchor_top", transparent: false },
         { name: "default", color: 0x8EB971 }
+    ];
+    private _additionalMaterialOption = [
+        { name: "block/respawn_anchor_top", transparent: false },
     ];
 
     /**
@@ -194,13 +198,22 @@ export class MCElementMesh extends THREE.Object3D {
                     alphaTest: 0.1, // アルファテストの閾値
                 };
 
+                const textureName: string = textureEntry.map?.userData?.texture_name || `block/${blockName}`;
+
                 if (faceData.hasOwnProperty("tintindex")) { //染色オプションに対応
-                    const textureName: string = textureEntry.map?.userData?.texture_name || `block/${blockName}`;
                     const match = this._diffuseColors.find(entry => 
                         entry.name !== "default" && textureName.includes(entry.name)
                     );
                     materialOptions.color = (match || this._diffuseColors.find(e => e.name === "default")).color;
                 }
+
+                // 追加のマテリアルオプションの適用
+                const additionalMaterialOpt = this._additionalMaterialOption.find( e => textureName.includes(e.name)) || {};
+                Object.keys(additionalMaterialOpt).forEach( opt => {
+                    if (opt != 'name') {
+                        materialOptions[opt] = additionalMaterialOpt[opt];
+                    }
+                });
 
                 const isAnimated = (textureEntry.map.userData as TextureUserData)?.totalFrames > 1;
                 const useShade = this._element.shade !== false; // 要素のshade設定を優先
