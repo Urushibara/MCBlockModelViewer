@@ -150,7 +150,7 @@ export class MCTextureLoader {
             if (mcmetaText) {
                 const mcmeta = JSON.parse(mcmetaText);
                 const anim = mcmeta.animation || {};
-                const fallbackFrameCount = Math.floor(texture.image.height / 16); //必ず16pxで割る(lava_flowでも！)
+                const fallbackFrameCount = Math.floor(texture.image.height / texture.image.width);
                 const fallbackFrametime = anim.frametime ? anim.frametime : 1;
                 const fallbackFrames = Array.from({ length: fallbackFrameCount }, (_, i) => i);
 

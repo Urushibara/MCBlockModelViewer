@@ -39,6 +39,8 @@ const selectedProperties = ref<Record<string, string | null>>({});
 // Key: conditionKey (string), Value: selected model index (number)
 const selectedModelGroupIndices = ref<Map<string, number>>(new Map());
 
+let lastLoaddedBlock:string = "";
+
 // ロードされているリソースパックの表示と並べ替え用
 interface LoadedResourcePackItem {
     id: string; // MinecraftJarLoaderで使う内部ID
@@ -102,6 +104,28 @@ const onResourcePackFileChange = async (event: Event) => {
     if (successfulLoads > 0) {
         $toast.open({ message: `${successfulLoads} resource pack(s) loaded.`, type: 'success' });
         updateListsAndUI();
+        // 削除されたZIPが現在表示中のブロックに影響を与える可能性があるので、ブロックを再ロード
+        if (selectedBlockName.value && renderManager.value) {
+            await loadAndSetBlockState();
+        }
+    }
+};
+
+// リソースパックを削除するメソッド
+const removeResourcePack = async (id: string) => {
+    try {
+        jarLoader.unloadZipFile(id);
+        $toast.open({ message: `Resource pack removed: ${id}`, type: 'info' });
+        updateListsAndUI(); // UIリストを更新
+
+        // 削除されたZIPが現在表示中のブロックに影響を与える可能性があるので、ブロックを再ロード
+        if (selectedBlockName.value && renderManager.value) {
+            $toast.open({ message: 'Reloading block due to resource pack removal...', type: 'info', duration: 1500 });
+            await loadAndSetBlockState();
+        }
+    } catch (error: any) {
+        $toast.open({ message: `Failed to remove resource pack: ${error.message}`, type: 'error' });
+        console.error(error);
     }
 };
 
@@ -136,8 +160,10 @@ const updateListsAndUI = () => {
 
     // デフォルトブロックの選択（初回またはnamespace変更時）
     const debug_target = isDebug ? "grass_block" : "grass_block";
-    if (availableBlocks.value.includes(debug_target)) {
+    if (!lastLoaddedBlock && availableBlocks.value.includes(debug_target)) {
         selectedBlockName.value = debug_target;
+    } else if (lastLoaddedBlock && availableBlocks.value.includes(lastLoaddedBlock)) {
+        selectedBlockName.value = lastLoaddedBlock;
     } else if (availableBlocks.value.length > 0) {
         selectedBlockName.value = availableBlocks.value[0];
     } else {
@@ -146,11 +172,11 @@ const updateListsAndUI = () => {
 
     if (!selectedBlockName.value) {
         $toast.open({ message: 'No blockstate file was found in the loaded files for the current namespace.', type: 'info' });
-        if (blockMeshGroup.value) {
-            renderManager.value?.removeObject(blockMeshGroup.value);
-            blockMeshGroup.value.dispose();
-            blockMeshGroup.value = null;
-        }
+    }
+    
+    if (blockMeshGroup.value) {
+        blockMeshGroup.value.clearBlock();
+        blockMeshGroup.value.clearTextureCache();
     }
 };
 
@@ -184,7 +210,7 @@ const applyNewResourcePackOrder = async () => {
 
         // リソースパックの順序が変わったので、現在表示中のブロックを再ロード
         if (selectedBlockName.value && renderManager.value) {
-            $toast.open({ message: 'Reloading block due to resource pack order change...', type: 'info', duration: 1500 });
+            $toast.open({ message: 'Reloading block due to resource pack change...', type: 'info', duration: 1500 });
             await loadAndSetBlockState();
         }
     } catch (error: any) {
@@ -192,7 +218,6 @@ const applyNewResourcePackOrder = async () => {
         console.error(error);
     }
 };
-
 
 // selectedNamespace の変更を監視
 watch(selectedNamespace, async (newNamespace) => {
@@ -207,30 +232,23 @@ watch(selectedNamespace, async (newNamespace) => {
 
 // selectedBlockName の変更を監視
 watch(selectedBlockName, async (newBlockName) => {
+
     if (newBlockName && renderManager.value) {
         renderManager.value.resetCamera();
         await loadAndSetBlockState();
+
     } else {
         if (blockMeshGroup.value && renderManager.value) {
-            renderManager.value.removeObject(blockMeshGroup.value);
-            blockMeshGroup.value.dispose();
-            blockMeshGroup.value = null;
+            blockMeshGroup.value.clearBlock();
         }
     }
 });
 
-// プロパティ変更時の処理
-const onPropertyChange = () => {
-    // プロパティが変更されたら、各モデルグループの選択インデックスをリセット
-    selectedModelGroupIndices.value.clear(); // 全てクリア
-    // applyBlockState() は以下の watch がトリガーするので直接は呼び出さない
-};
-
-// activeModelGroups, selectedProperties, selectedModelGroupIndices の変更を監視
+// activeModelGroups, selectedProperties の変更を監視
 watch(
-    [activeModelGroups, selectedProperties, selectedModelGroupIndices],
-    () => {
-        applyBlockState();
+    [ activeModelGroups, selectedProperties, selectedModelGroupIndices ], 
+    async () => {
+        await applyBlockState();
     },
     { deep: true }
 );
@@ -242,9 +260,7 @@ const loadAndSetBlockState = async () => {
     }
 
     if (blockMeshGroup.value) {
-        renderManager.value.removeObject(blockMeshGroup.value);
-        blockMeshGroup.value.dispose();
-        blockMeshGroup.value = null;
+        blockMeshGroup.value.clearBlock();
     }
 
     const blockstatePath = `assets/${selectedNamespace.value}/blockstates/${selectedBlockName.value}.json`;
@@ -260,11 +276,13 @@ const loadAndSetBlockState = async () => {
 
     blockStateManager.setBlockState(selectedBlockName.value, blockstateJson);
 
-    blockMeshGroup.value = new BlockMeshGroup({
-        blockName: selectedBlockName.value,
-        modelLoader: blockModelLoader,
-        textureLoader: textureLoader
-    });
+    if (!blockMeshGroup.value) {
+        blockMeshGroup.value = new BlockMeshGroup({
+            blockName: selectedBlockName.value,
+            modelLoader: blockModelLoader,
+            textureLoader: textureLoader
+        });
+    }
     renderManager.value.addObject(blockMeshGroup.value);
 
     // 可能なプロパティを取得し、UIを更新
@@ -272,12 +290,13 @@ const loadAndSetBlockState = async () => {
     // ここで新しいインデックス管理 Map を初期化する
     selectedModelGroupIndices.value = new Map();
     initializeSelectedProperties(); // UIの初期値を設定
-
-    // await applyBlockState(); // 初期状態のモデルを表示 ブロック選択が監視されているので不要
+    
+    //await applyBlockState(); // 初期状態のモデルを表示 ブロック選択が監視されているので不要
 };
 
 // possiblePropertiesに基づいてselectedPropertiesの初期値を設定するヘルパー関数
 const initializeSelectedProperties = async () => {
+
     const newSelectedProps: Record<string, string | null> = {};
     const propNames = Object.keys(possibleProperties.value);
 
@@ -363,16 +382,17 @@ const applyBlockState = async () => {
     console.log("Models to render:", JSON.stringify(groupsToRender));
 
     if (groupsToRender.length > 0) {
-        await blockMeshGroup.value.prepare(groupsToRender);
-        await blockMeshGroup.value.show(groupsToRender).catch(error => {
+        blockMeshGroup.value.clearBlock();
+        const success = await blockMeshGroup.value.prepare(groupsToRender, selectedBlockName.value).catch(error => {
             $toast.open({ message: error.message, type: "warning" });
         });
-    } else {
-        if (blockMeshGroup.value) {
-            renderManager.value?.removeObject(blockMeshGroup.value);
-            blockMeshGroup.value.dispose();
-            blockMeshGroup.value = null;
+        if (success) {
+            await blockMeshGroup.value.show(groupsToRender).catch(error => {
+                $toast.open({ message: error.message, type: "warning" });
+            });
         }
+    } else {
+        blockMeshGroup.value.clearBlock();
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
 };
@@ -477,6 +497,7 @@ const saveAsImage = () => {
                     <span>{{ item.name }}</span>
                     <button @click="moveResourcePackUp(index)" :disabled="index === 0">↑</button>
                     <button @click="moveResourcePackDown(index)" :disabled="index === loadedResourcePacks.length - 1">↓</button>
+                    <button @click="removeResourcePack(item.id)" class="remove-button">✕</button>
                 </div>
                 <p v-if="loadedResourcePacks.length === 0" class="no-files-message">No resource packs loaded. Please upload files.</p>
             </div>
@@ -508,7 +529,7 @@ const saveAsImage = () => {
                 <div v-if="Object.keys(possibleProperties).length > 0">
                     <div v-for="(propData, propName) in possibleProperties" :key="propName" class="property">
                         <label>{{ propName }}:</label>
-                        <select v-model="selectedProperties[propName]" @change="onPropertyChange">
+                        <select v-model="selectedProperties[propName]">
                             <option v-for="option in propData.options" :key="option.value" :value="option.value">
                                 {{ option.value }}
                             </option>
@@ -520,7 +541,7 @@ const saveAsImage = () => {
                                 <div v-if="group.models.length > 1" class="model-group-select">
                                     <select
                                         :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))">
+                                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
                                         <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
                                             {{ JSON.stringify(modelOption) }}
                                         </option>
@@ -542,7 +563,7 @@ const saveAsImage = () => {
                         <div v-if="group.models.length > 1" class="model-group-select">
                             <select
                                 :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))"
+                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))"
                             >
                                 <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
                                     {{ JSON.stringify(modelOption) }}
@@ -611,6 +632,7 @@ const saveAsImage = () => {
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 1em;
+    min-width:8em;
 }
 
 /* Resource Pack List */
@@ -663,6 +685,14 @@ const saveAsImage = () => {
     cursor: not-allowed;
 }
 
+.resource-pack-item .remove-button {
+    background-color: #dc3545; /* 赤色 */
+}
+
+.resource-pack-item .remove-button:hover:not(:disabled) {
+    background-color: #c82333; /* 濃い赤色 */
+}
+
 .no-files-message {
     color: #888;
     text-align: center;
@@ -678,11 +708,13 @@ const saveAsImage = () => {
     text-align: left;
 }
 
+/*
 .properties-box .property {
     margin-bottom: 10px;
     padding-bottom: 5px;
     border-bottom: 1px dotted #eee;
 }
+*/
 
 .properties-box .property:last-child {
     border-bottom: none;
@@ -703,7 +735,6 @@ const saveAsImage = () => {
 .nested-model-group-wrapper {
     margin-left: 100px; /* プロパティラベルの幅に合わせてインデント */
     margin-top: 5px;
-    padding-left: 10px;
 }
 
 .model-group-select select {

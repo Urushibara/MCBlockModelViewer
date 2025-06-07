@@ -1,5 +1,6 @@
 // MinecraftJarLoader.ts
 import JSZip from 'jszip';
+import { mock_datas, complement_blocks } from "./data/fallbackJsons";
 
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
@@ -128,32 +129,16 @@ export class MinecraftJarLoader {
             return null;
         }
 
-        // デバッグ用モックデータ (既存のロジックを維持)
+        // デバッグ用モックデータ
         if (isDebug) {
-            switch (path) {
-                case "assets/minecraft/models/block/coral_fans.json": {
-                    let json = JSON.stringify(
-                        {
-                            "ambientocclusion": false,
-                            "textures": {
-                                "particle": "#fan"
-                            },
-                            "elements": [
-                                {
-                                    "from": [0, 0, 0],
-                                    "to": [16, 0, 16],
-                                    "shade": false,
-                                    "faces": {
-                                        "up": {"uv": [0, 0, 16, 16], "texture": "#fan", "rotation": 90},
-                                        "down": {/*"uv": [ 0, 16, 16, 0 ],*/ "texture": "#fan", "rotation": 270}
-                                    }
-                                }
-                            ]
-                        }
-                    );
-                    return json;
-                }
+            if (mock_datas.hasOwnProperty(path)) {
+                return JSON.stringify(mock_datas[path]);
             }
+        }
+        
+        // データ補完
+        if (complement_blocks.hasOwnProperty(path)) {
+            return JSON.stringify(complement_blocks[path]);
         }
 
         // 優先順位が高いものから検索 (配列の最後から)
@@ -168,6 +153,7 @@ export class MinecraftJarLoader {
                 }
             }
         }
+
         return null; // どのZIPにも見つからなかった場合
     }
 

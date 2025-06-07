@@ -61,6 +61,9 @@ export class BlockStateManager {
      * @param blockStateJson - Minecraftのblockstate.jsonの内容
      */
     public setBlockState(blockName: string, blockStateJson: IBlockStateFile): void {
+        if (this.blockName == blockName) {
+            return;
+        }
         this.blockName = blockName;
         this.blockStateJson = this._normalizeBlockState(blockStateJson); // 正規化して格納
         this.isMultipart = !!blockStateJson.multipart; // multipartが存在すればtrue
@@ -103,7 +106,7 @@ export class BlockStateManager {
 
         // 4. その他のEnumプロパティに対する優先順位リスト
         const specificDefaultCandidates: { [key: string]: string[] } = {
-            'facing': ['south', 'up'],
+            'facing': ['up', 'south'],
             'face': ['floor', 'ceiling', 'wall'],
             'half': ['bottom', 'lower', 'top', 'upper'],
             'shape': ['straight', 'outer_right', 'north_south'],
@@ -414,26 +417,32 @@ export class BlockStateManager {
             if (rule.when) {
                 if (rule.when.AND) {
                     conditionMet = rule.when.AND.every(andCondition => {
-                        const match = this._doesConditionMatch(andCondition, currentSelectedProps);
+                        // andCondition は { "prop": "val", "prop2": "val2|val3" } の形式
+                        const match = this._doesConditionMatch(andCondition as ICondition, currentSelectedProps);
                         return match;
                     });
                     if (conditionMet) {
-                        conditionKey = rule.when.AND.map(c => this._getKey(c as Record<string, string>)).sort().join('&');
+                        conditionKey = rule.when.AND.map(c => this._getKey(c as ICondition)).sort().join('&');
                     }
                 } else if (rule.when.OR) {
                     conditionMet = rule.when.OR.some(orCondition => {
-                        const match = this._doesConditionMatch(orCondition, currentSelectedProps);
+                        // orCondition は { "prop": "val", "prop2": "val2|val3" } の形式
+                        const match = this._doesConditionMatch(orCondition as ICondition, currentSelectedProps);
                         return match;
                     });
                     if (conditionMet) {
-                        conditionKey = `OR-${JSON.stringify(rule.when.OR.map(c => this._getKey(c as Record<string, string>)).sort())}`;
+                        conditionKey = `OR-${JSON.stringify(rule.when.OR.map(c => this._getKey(c as ICondition)).sort())}`;
                     }
                 } else {
-                    console.warn("[BlockStateManager] Unexpected 'when' structure after normalization in multipart.");
-                    conditionMet = false;
+                    // when が AND/OR の配列ではなく単一のオブジェクトの場合
+                    // これは _normalizeBlockState で AND に変換されるはずですが、念のため here.
+                    conditionMet = this._doesConditionMatch(rule.when as ICondition, currentSelectedProps);
+                    if (conditionMet) {
+                        conditionKey = this._getKey(rule.when as ICondition);
+                    }
                 }
             } else {
-                conditionMet = true;
+                conditionMet = true; // when がない場合は常にマッチ (デフォルトモデル)
                 conditionKey = "default_multipart";
             }
 
@@ -442,7 +451,7 @@ export class BlockStateManager {
                 const isWeighted = modelsToApply.some(model => typeof model.weight === 'number');
 
                 activeModelGroups.push({
-                    models: modelsToApply.sort((a, b) => (a.model || '').localeCompare(b.model || '')), // 全てのモデルをそのまま返す
+                    models: modelsToApply.sort((a, b) => (a.model || '').localeCompare(b.model || '')),
                     conditionKey: conditionKey,
                     isWeighted: isWeighted
                 });
@@ -452,31 +461,57 @@ export class BlockStateManager {
     }
 
     /**
-     * 与えられた条件オブジェクトが selectedProperties と一致するかを判定します。
+     * 指定された条件オブジェクトが、現在の選択されたプロパティと一致するかどうかを判定します。
      * これは `multipart` の `when` 節内の個々の条件評価に使用されます。
-     * @param condition { [key: string]: string | string[] } - 例: { "facing": "north", "powered": "true" } または { "axis": ["x", "z"] }
-     * @param selectedProperties { [key: string]: string } - 現在選択されているプロパティ
-     * @returns boolean
+     * パイプで区切られた値（例: "true|false"）にも対応します。
+     *
+     * @private
+     * @param condition - 比較する条件オブジェクト (例: { "face": "floor", "lit": "true" } または { "axis": ["x", "z"] })
+     * @param currentSelectedProps - 現在選択されているプロパティと値
+     * @returns 条件が一致すれば true、そうでなければ false
      */
-    private _doesConditionMatch(condition: ICondition, selectedProperties: Record<string, string>): boolean {
-        // `condition` は `ICondition` 型なので、オブジェクト形式を期待
-        for (const propName in condition) {
-            const requiredValue = (condition as Record<string, string | string[]>)[propName];
+    private _doesConditionMatch(condition: ICondition, currentSelectedProps: { [key: string]: string }): boolean {
+        // condition は ICondition 型なので、Object.entries を使って安全に反復処理
+        for (const [propName, expectedValue] of Object.entries(condition)) {
+            const actualValue = currentSelectedProps[propName];
 
-            if (Array.isArray(requiredValue)) {
-                // 値が配列の場合（例: "axis": ["x", "z"]）、selectedProperties の値がいずれかに一致すればOK
-                if (!requiredValue.includes(selectedProperties[propName])) {
-                    return false;
-                }
+            // 選択されたプロパティに、現在の条件のプロパティ名が存在しない場合はマッチしない
+            if (actualValue === undefined) {
+                return false;
+            }
+
+            let expectedValuesArray: string[];
+
+            if (Array.isArray(expectedValue)) {
+                // `expectedValue` が既に配列の場合
+                expectedValuesArray = expectedValue;
             } else {
-                // 値が単一の場合、selectedProperties の値と完全に一致する必要がある
-                if (selectedProperties[propName] === undefined || selectedProperties[propName] !== requiredValue) {
-                    return false;
-                }
+                // `expectedValue` が文字列の場合、パイプで分割して配列にする
+                expectedValuesArray = String(expectedValue).split('|').map(v => v.trim());
+            }
+
+            // 実際の値が、期待される値の配列のいずれかに含まれているかチェック
+            if (!expectedValuesArray.includes(actualValue)) {
+                return false;
             }
         }
-        return true;
+        return true; // すべての条件がマッチした場合
     }
+
+    /**
+     * blockstate.jsonの条件オブジェクトからキー文字列を生成します。
+     * マルチパートルールをソートするために使用されます。
+     * @param condition - 条件オブジェクト
+     * @returns 条件を表す文字列
+     */
+    private _getKey(condition: Record<string, string>): string {
+        // パイプ区切りも考慮して、key=val の形式でソート
+        return Object.keys(condition)
+            .sort()
+            .map(propName => `${propName}=${condition[propName]}`)
+            .join(',');
+    }
+
 
     /**
      * blockstateの構造の差異を吸収し、内部で扱いやすい形式に正規化します。

@@ -45,7 +45,7 @@ export class BlockModelLoader {
             return JSON.parse(text);
         } catch (e) {
             console.error(`[BlockModelLoader] Failed to read or parse JSON from ${path}:`, e);
-            throw new Error(`Failed to process model JSON for ${path}: ${e.message}`);
+            throw e;
         }
     }
 
@@ -157,7 +157,7 @@ export class BlockModelLoader {
         } catch (error) {
             // モデルが見つからない、またはパースエラーの場合に null を返す
             console.warn(`[BlockModelLoader] Could not load model '${modelRef}'. Reason: ${error.message}`);
-            return null; // BlockMeshGroup が null を受け取ってフォールバックするように
+            throw error;
         }
     }
 

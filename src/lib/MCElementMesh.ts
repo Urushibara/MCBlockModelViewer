@@ -44,8 +44,9 @@ export class MCElementMesh extends THREE.Object3D {
         { name: "block/redstone_dust", color: 0xFC3100 },
         { name: "block/lily_pad", color: 0x208030 },
         { name: "block/water_still", color: 0x3F76E4 },
-        { name: "block/lava_still", color: 0xFFFFFF }, // lava_cauldron
-        { name: "block/powder_snow", color: 0xFFFFFF }, // powder_snow_cauldron
+        { name: "block/water_flow", color: 0x3F76E4 },
+        { name: "block/lava_still", color: 0xFFFFFF }, // for lava_cauldron
+        { name: "block/powder_snow", color: 0xFFFFFF }, // for powder_snow_cauldron
         { name: "pumpkin_stem", color: 0xE0C71C },
         { name: "melon_stem", color: 0xE0C71C },
         { name: "block/spruce_leaves", color: 0x619961 },
@@ -106,12 +107,18 @@ export class MCElementMesh extends THREE.Object3D {
             }
             const uvRect = faceData.uv ? [...faceData.uv] : defaultUVs;
 
-            const textureKey = faceData.texture;
-            const textureEntry = textures[textureKey];
+            let textureKey = faceData.texture;
+            let textureEntry = textures[textureKey];
 
             if (!textureEntry || !textureEntry.map) {
-                console.warn(`[MCElementMesh] Texture not found for key: '${textureKey}'. Skipping face: ${faceName}`);
-                continue;
+                if (!textureKey.startsWith('#')){ // #無しのパターンに対応
+                    textureKey = `#${textureKey}`;
+                    textureEntry = textures[textureKey];
+                }
+                if (!textureEntry || !textureEntry.map) {
+                    console.warn(`[MCElementMesh] Texture not found for key: '${textureKey}'. Skipping face: ${faceName}`);
+                    continue;
+                }
             }
 
             // 2. ジオメトリの作成と初期配置 (Three.jsのワールド原点(0,0,0)基準)
@@ -389,7 +396,7 @@ export class MCElementMesh extends THREE.Object3D {
             return matrix.identity();
         }
 
-        const angleRad = THREE.MathUtils.degToRad(rotation.angle);
+        const angleRad = THREE.MathUtils.degToRad((360 + rotation.angle) % 360);
 
         // 1. 原点への平行移動
         const translationToOrigin = new THREE.Matrix4().makeTranslation(-origin.x, -origin.y, -origin.z);
@@ -540,7 +547,7 @@ export class MCElementMesh extends THREE.Object3D {
     private _rotateGrobalUVs(uvsToRotate: THREE.Vector2[], rotationDegrees: IAngle): THREE.Vector2[] {
 
         // 回転角をラジアンに変換 (0〜360度の範囲に正規化)
-        const angle = THREE.MathUtils.degToRad((rotationDegrees % 360 + 360) % 360);
+        const angle = THREE.MathUtils.degToRad((rotationDegrees + 360) % 360);
 
         // 回転の中心はUV空間の中心 (0.5, 0.5)
         const center = new THREE.Vector2(0.5, 0.5);
