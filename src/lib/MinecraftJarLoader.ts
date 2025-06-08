@@ -13,6 +13,8 @@ export class MinecraftJarLoader {
     // 複数のZIPインスタンスを保持し、後に追加されたものが優先されるように配列で管理
     private loadedZips: LoadedZip[] = [];
 
+    public useComplementData = true;
+
     constructor() {
         // コンストラクタで特別な初期化は不要
     }
@@ -137,7 +139,7 @@ export class MinecraftJarLoader {
         }
         
         // データ補完
-        if (complement_blocks.hasOwnProperty(path)) {
+        if (this.useComplementData && complement_blocks.hasOwnProperty(path)) {
             return JSON.stringify(complement_blocks[path]);
         }
 

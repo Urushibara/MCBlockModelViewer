@@ -45,7 +45,8 @@ export class MCElementMesh extends THREE.Object3D {
         { name: "block/lily_pad", color: 0x208030 },
         { name: "block/water_still", color: 0x3F76E4 },
         { name: "block/water_flow", color: 0x3F76E4 },
-        { name: "block/lava_still", color: 0xFFFFFF }, // for lava_cauldron
+        { name: "block/lava_still", color: 0xFFFFFF }, // for lava and lava_cauldron
+        { name: "block/lava_flow", color: 0xFFFFFF }, // for lava
         { name: "block/powder_snow", color: 0xFFFFFF }, // for powder_snow_cauldron
         { name: "pumpkin_stem", color: 0xE0C71C },
         { name: "melon_stem", color: 0xE0C71C },

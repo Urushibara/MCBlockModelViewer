@@ -15,41 +15,41 @@ import type { IActiveModelGroup, IPropertyOption, IPossibleProperty } from '@/li
 const $toast = useToast();
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
-const renderCanvas = ref<HTMLCanvasElement | null>(null);
+const renderCanvas = ref < HTMLCanvasElement | null > (null);
 
 // 主要クラスのインスタンス
 const jarLoader = new MinecraftJarLoader();
 const blockModelLoader = new BlockModelLoader(jarLoader); // jarLoaderを注入
 const textureLoader = new MCTextureLoader(jarLoader); // jarLoaderを注入
 const blockStateManager = new BlockStateManager();
-const blockMeshGroup = ref<BlockMeshGroup | null>(null);
-const renderManager = ref<RenderManager | null>(null);
+const blockMeshGroup = ref < BlockMeshGroup | null > (null);
+const renderManager = ref < RenderManager | null > (null);
 
 // UI連動用 リアクティブな状態
-const selectedBlockName = ref<string | null>(null);
-const availableBlocks = ref<string[]>([]);
-const availableNamespaces = ref<string[]>([]);
-const selectedNamespace = ref<string>('minecraft');
+const selectedBlockName = ref < string | null > (null);
+const availableBlocks = ref < string[] > ([]);
+const availableNamespaces = ref < string[] > ([]);
+const selectedNamespace = ref < string > ('minecraft');
 
 // BlockStateManager が提供するUI生成用データ
-const possibleProperties = ref<IPossibleProperty>({});
-const selectedProperties = ref<Record<string, string | null>>({});
+const possibleProperties = ref < IPossibleProperty > ({});
+const selectedProperties = ref < Record < string, string | null >> ({});
 
 // 各モデルグループの選択されたインデックスを管理するMap
 // Key: conditionKey (string), Value: selected model index (number)
-const selectedModelGroupIndices = ref<Map<string, number>>(new Map());
+const selectedModelGroupIndices = ref < Map < string, number>> (new Map());
 
-let lastLoaddedBlock:string = "";
+let lastLoaddedBlock: string = "";
 
 // ロードされているリソースパックの表示と並べ替え用
 interface LoadedResourcePackItem {
     id: string; // MinecraftJarLoaderで使う内部ID
     name: string; // UI表示用のファイル名
 }
-const loadedResourcePacks = ref<LoadedResourcePackItem[]>([]);
+const loadedResourcePacks = ref < LoadedResourcePackItem[] > ([]);
 
 // BlockStateManager から現在選択されているプロパティに基づいてモデルグループリストを取得
-const activeModelGroups = computed<IActiveModelGroup[]>(() => {
+const activeModelGroups = computed < IActiveModelGroup[] > (() => {
     if (!blockStateManager || !selectedBlockName.value) {
         return [];
     }
@@ -170,11 +170,14 @@ const updateListsAndUI = () => {
         selectedBlockName.value = null;
     }
 
+    lastLoaddedBlock = selectedBlockName.value;
+
     if (!selectedBlockName.value) {
         $toast.open({ message: 'No blockstate file was found in the loaded files for the current namespace.', type: 'info' });
     }
-    
+
     if (blockMeshGroup.value) {
+        renderManager.value?.removeObject(blockMeshGroup.value);
         blockMeshGroup.value.clearBlock();
         blockMeshGroup.value.clearTextureCache();
     }
@@ -239,19 +242,20 @@ watch(selectedBlockName, async (newBlockName) => {
 
     } else {
         if (blockMeshGroup.value && renderManager.value) {
+            renderManager.value.removeObject(blockMeshGroup.value);
             blockMeshGroup.value.clearBlock();
         }
     }
 });
 
-// activeModelGroups, selectedProperties の変更を監視
 watch(
-    [ activeModelGroups, selectedProperties, selectedModelGroupIndices ], 
+    [selectedModelGroupIndices, activeModelGroups],
     async () => {
         await applyBlockState();
     },
     { deep: true }
 );
+
 
 // 現在選択されているブロック状態とモデルをロードし、RenderManagerに設定する
 const loadAndSetBlockState = async () => {
@@ -260,6 +264,7 @@ const loadAndSetBlockState = async () => {
     }
 
     if (blockMeshGroup.value) {
+        renderManager.value.removeObject(blockMeshGroup.value);
         blockMeshGroup.value.clearBlock();
     }
 
@@ -290,7 +295,7 @@ const loadAndSetBlockState = async () => {
     // ここで新しいインデックス管理 Map を初期化する
     selectedModelGroupIndices.value = new Map();
     initializeSelectedProperties(); // UIの初期値を設定
-    
+
     //await applyBlockState(); // 初期状態のモデルを表示 ブロック選択が監視されているので不要
 };
 
@@ -310,9 +315,7 @@ const initializeSelectedProperties = async () => {
     selectedProperties.value = { ...newSelectedProps }; // Vueのリアクティブオブジェクトに反映
 
     // Step 2: 現在のデフォルト値でモデルを取得し、表示されるモデルがあるかチェック
-    const defaultModels = blockStateManager.getActiveModels(selectedProperties.value);
-
-    if (defaultModels.length === 0) {
+    if (activeModelGroups.value.length === 0) {
         console.log("Default properties resulted in no visible models. Attempting to adjust first property.");
 
         // Step 3: 最初のプロパティを見つけて、デフォルト以外の値で試す
@@ -382,7 +385,6 @@ const applyBlockState = async () => {
     console.log("Models to render:", JSON.stringify(groupsToRender));
 
     if (groupsToRender.length > 0) {
-        blockMeshGroup.value.clearBlock();
         const success = await blockMeshGroup.value.prepare(groupsToRender, selectedBlockName.value).catch(error => {
             $toast.open({ message: error.message, type: "warning" });
         });
@@ -392,7 +394,10 @@ const applyBlockState = async () => {
             });
         }
     } else {
-        blockMeshGroup.value.clearBlock();
+        if (blockMeshGroup.value) {
+            renderManager.value?.removeObject(blockMeshGroup.value);
+            blockMeshGroup.value.clearBlock();
+        }
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
 };
@@ -409,7 +414,7 @@ const doesGroupConditionContainProperty = (group: IActiveModelGroup, propName: s
 };
 
 // 各プロパティの下に表示するモデルグループをフィルタリング
-const modelGroupsByProperty = computed<Record<string, IActiveModelGroup[]>>(() => {
+const modelGroupsByProperty = computed < Record < string, IActiveModelGroup[]>> (() => {
     const groupsMap: Record<string, IActiveModelGroup[]> = {};
 
     Object.keys(possibleProperties.value).forEach(propName => {
@@ -431,9 +436,9 @@ const modelGroupsByProperty = computed<Record<string, IActiveModelGroup[]>>(() =
 });
 
 // 独立したモデルグループ（どのプロパティにも直接紐づかないもの）を特定するComputed
-const independentModelGroups = computed<IActiveModelGroup[]>(() => {
+const independentModelGroups = computed < IActiveModelGroup[] > (() => {
     const independent: IActiveModelGroup[] = [];
-    const associatedGroupKeys = new Set<string>();
+    const associatedGroupKeys = new Set < string > ();
 
     Object.keys(modelGroupsByProperty.value).forEach(propName => {
         modelGroupsByProperty.value[propName].forEach(group => {
@@ -450,7 +455,7 @@ const independentModelGroups = computed<IActiveModelGroup[]>(() => {
     return independent;
 });
 
-const canvasSize = ref<number>(600); // 初期値として600x600pxを設定
+const canvasSize = ref < number > (600); // 初期値として600x600pxを設定
 
 watch(canvasSize, () => {
     nextTick(() => {
@@ -479,15 +484,14 @@ const saveAsImage = () => {
 
 <template>
     <h2>Minecraft Block Model Viewer</h2>
-    <div class="main-container">
+    <div class="main-container ui-box">
         <div class="controls-panel">
-            <div class="ui-box">
-                <div>
-                    <label>Vanilla file:</label><input type="file" @change="onVanillaFileChange" accept=".jar" />
-                </div>
-                <div>
-                    <label>Resources:</label><input type="file" @change="onResourcePackFileChange" accept=".zip,.jar" multiple />
-                </div>
+            <div>
+                <label>Vanilla file:</label><input type="file" @change="onVanillaFileChange" accept=".jar" />
+            </div>
+            <div>
+                <label>Resources:</label><input type="file" @change="onResourcePackFileChange" accept=".zip,.jar"
+                    multiple />
             </div>
 
             <hr />
@@ -496,34 +500,34 @@ const saveAsImage = () => {
                 <div v-for="(item, index) in loadedResourcePacks" :key="item.id" class="resource-pack-item">
                     <span>{{ item.name }}</span>
                     <button @click="moveResourcePackUp(index)" :disabled="index === 0">↑</button>
-                    <button @click="moveResourcePackDown(index)" :disabled="index === loadedResourcePacks.length - 1">↓</button>
+                    <button @click="moveResourcePackDown(index)"
+                        :disabled="index === loadedResourcePacks.length - 1">↓</button>
                     <button @click="removeResourcePack(item.id)" class="remove-button">✕</button>
                 </div>
-                <p v-if="loadedResourcePacks.length === 0" class="no-files-message">No resource packs loaded. Please upload files.</p>
+                <p v-if="loadedResourcePacks.length === 0" class="no-files-message">No resource packs loaded. Please upload
+                    files.</p>
             </div>
 
             <hr />
-            <div class="ui-box">
-                <div>
-                    <label>Namespace:</label>
-                    <select v-model="selectedNamespace">
-                        <option v-for="ns in availableNamespaces" :key="ns" :value="ns">
-                            {{ ns }}
-                        </option>
-                    </select>
-                </div>
-                <div>
-                    <label>Block:</label>
-                    <select v-model="selectedBlockName">
-                        <option v-for="block in availableBlocks" :key="block" :value="block">
-                            {{ block }}
-                        </option>
-                    </select>
-                    <p v-if="availableBlocks.length === 0 && selectedNamespace" class="no-files-message">No blockstates found in "{{ selectedNamespace }}" namespace.</p>
-                </div>
+            <div>
+                <label>Namespace:</label>
+                <select v-model="selectedNamespace">
+                    <option v-for="ns in availableNamespaces" :key="ns" :value="ns">
+                        {{ ns }}
+                    </option>
+                </select>
             </div>
+            <div v-if="availableBlocks.length > 0">
+                <label>Block:</label>
+                <select v-model="selectedBlockName">
+                    <option v-for="block in availableBlocks" :key="block" :value="block">
+                        {{ block }}
+                    </option>
+                </select>
+            </div>
+            <p v-if="availableBlocks.length === 0 && selectedNamespace" class="no-files-message">No blockstates found in
+                "{{ selectedNamespace }}" namespace.</p>
 
-            <hr />
             <label>Properties:</label>
             <div class="properties-box">
                 <div v-if="Object.keys(possibleProperties).length > 0">
@@ -539,10 +543,10 @@ const saveAsImage = () => {
                             <div v-for="(group, groupIndex) in modelGroupsByProperty[propName]"
                                 :key="group.conditionKey || 'group-nested-' + propName + '-' + groupIndex">
                                 <div v-if="group.models.length > 1" class="model-group-select">
-                                    <select
-                                        :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
+                                    <select :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
                                         @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
-                                        <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
+                                        <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex"
+                                            :key="modelIndex">
                                             {{ JSON.stringify(modelOption) }}
                                         </option>
                                     </select>
@@ -554,18 +558,16 @@ const saveAsImage = () => {
                 <div v-else class="no-properties-message">
                     <span>No properties available for this block.</span>
                 </div>
-                
+
                 <div v-if="independentModelGroups.length > 1" class="independent-models-section">
                     <h4>Independent Models:</h4>
                     <div v-for="(group, groupIndex) in independentModelGroups"
-                            :key="group.conditionKey || 'group-other-' + groupIndex"
-                            class="model-group-box">
+                        :key="group.conditionKey || 'group-other-' + groupIndex" class="model-group-box">
                         <div v-if="group.models.length > 1" class="model-group-select">
-                            <select
-                                :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))"
-                            >
-                                <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex" :key="modelIndex">
+                            <select :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
+                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
+                                <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex"
+                                    :key="modelIndex">
                                     {{ JSON.stringify(modelOption) }}
                                 </option>
                             </select>
@@ -576,7 +578,10 @@ const saveAsImage = () => {
         </div>
 
         <div class="render-section">
-            <canvas class="render-box" ref="renderCanvas" :width="canvasSize" :height="canvasSize" :style="{ width: canvasSize + 'px', height: canvasSize + 'px' }"></canvas>
+            <div class="render-frame">
+                <canvas class="render-box" ref="renderCanvas" :width="canvasSize" :height="canvasSize"
+                    :style="{ width: canvasSize + 'px', height: canvasSize + 'px' }"></canvas>
+            </div>
             <div class="size-ui-box">
                 <input type="radio" id="size1" name="canvasSize" value="300" v-model.number="canvasSize">
                 <label for="size1">300x300px</label>
@@ -591,14 +596,14 @@ const saveAsImage = () => {
 <style scoped>
 .main-container {
     display: flex;
-    gap: 20px; /* コントロールパネルとレンダリングエリアの間のスペース */
+    gap: 20px;
     justify-content: left;
     align-items: flex-start;
 }
 
 .controls-panel {
-    flex-shrink: 0; /* 縮まないようにする */
-    width: 450px; /* コントロールパネルの固定幅 */
+    flex-shrink: 0;
+    width: 450px;
     padding: 15px;
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -608,13 +613,14 @@ const saveAsImage = () => {
     display: flex;
     flex-direction: column;
     align-items: left;
+    min-width: 602px;
+    min-height: 670px;
 }
 
 .ui-box {
     margin-bottom: 15px;
     text-align: left;
 }
-
 .ui-box > div {
     margin-bottom: 8px;
 }
@@ -640,8 +646,8 @@ const saveAsImage = () => {
     border: 1px dashed #a0a0a0;
     padding: 10px;
     min-height: 80px;
-    max-height: 200px; /* 高さを制限してスクロール可能にする */
-    overflow-y: auto; /* 縦スクロールを有効にする */
+    max-height: 200px;
+    overflow-y: auto;
     border-radius: 4px;
 }
 
@@ -660,7 +666,7 @@ const saveAsImage = () => {
 .resource-pack-item span {
     flex-grow: 1;
     margin-right: 10px;
-    word-break: break-all; /* 長いファイル名でも折り返す */
+    word-break: break-all;
     text-align: right;
 }
 
@@ -686,11 +692,11 @@ const saveAsImage = () => {
 }
 
 .resource-pack-item .remove-button {
-    background-color: #dc3545; /* 赤色 */
+    background-color: #dc3545;
 }
 
 .resource-pack-item .remove-button:hover:not(:disabled) {
-    background-color: #c82333; /* 濃い赤色 */
+    background-color: #c82333;
 }
 
 .no-files-message {
@@ -708,19 +714,6 @@ const saveAsImage = () => {
     text-align: left;
 }
 
-/*
-.properties-box .property {
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-    border-bottom: 1px dotted #eee;
-}
-*/
-
-.properties-box .property:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
 .properties-box .property label {
     min-width: 90px;
     text-align: right;
@@ -733,13 +726,11 @@ const saveAsImage = () => {
 }
 
 .nested-model-group-wrapper {
-    margin-left: 100px; /* プロパティラベルの幅に合わせてインデント */
-    margin-top: 5px;
+    margin-left: 100px;
 }
 
 .model-group-select select {
     width: calc(100% - 10px); /* 親要素の幅に合わせて調整 */
-    margin-top: 5px;
 }
 
 .independent-models-section {
@@ -769,14 +760,18 @@ const saveAsImage = () => {
     display: block;
     position: relative;
     line-height: 1px;
-    /* margin: auto; */ /* flexコンテナ内で中央寄せは不要に */
-    margin-top: 1em;
-    border: 1px solid #ccc; /* 境界線を追加 */
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.2); /* 影を追加 */
+    margin: auto;
+}
+
+.render-frame {
+    display: flex;
+    position: relative;
+    border: solid 1px #ddd;
+    min-height: 600px;
 }
 
 .size-ui-box {
-    width: 100%; /* 親要素の幅に合わせる */
+    width: 100%;
     text-align: center;
     margin-top: 10px;
     padding: 10px;
@@ -815,7 +810,7 @@ hr {
     border-top: 1px solid #eee;
 }
 
-h2, h3 {
+h2, h4 {
     text-align: center;
     margin-bottom: 15px;
 }
