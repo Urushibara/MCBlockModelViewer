@@ -80,6 +80,102 @@ export const complement_blocks = {
 		]
 	},
 	// signs block models
+	"assets/minecraft/blockstates/oak_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/oak_sign" },
+			"facing=east": { "model": "minecraft:block/oak_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/oak_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/oak_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/spruce_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/spruce_sign" },
+			"facing=east": { "model": "minecraft:block/spruce_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/spruce_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/spruce_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/birch_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/birch_sign" },
+			"facing=east": { "model": "minecraft:block/birch_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/birch_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/birch_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/jungle_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/jungle_sign" },
+			"facing=east": { "model": "minecraft:block/jungle_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/jungle_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/jungle_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/acacia_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/acacia_sign" },
+			"facing=east": { "model": "minecraft:block/acacia_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/acacia_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/acacia_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/dark_oak_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/dark_oak_sign" },
+			"facing=east": { "model": "minecraft:block/dark_oak_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/dark_oak_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/dark_oak_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/mangrove_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/mangrove_sign" },
+			"facing=east": { "model": "minecraft:block/mangrove_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/mangrove_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/mangrove_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/cherry_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/cherry_sign" },
+			"facing=east": { "model": "minecraft:block/cherry_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/cherry_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/cherry_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/pale_oak_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/pale_oak_sign" },
+			"facing=east": { "model": "minecraft:block/pale_oak_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/pale_oak_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/pale_oak_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/bamboo_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/bamboo_sign" },
+			"facing=east": { "model": "minecraft:block/bamboo_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/bamboo_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/bamboo_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/crimson_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/crimson_sign" },
+			"facing=east": { "model": "minecraft:block/crimson_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/crimson_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/crimson_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/warped_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/warped_sign" },
+			"facing=east": { "model": "minecraft:block/warped_sign", "y": 90 },
+			"facing=south": { "model": "minecraft:block/warped_sign", "y": 180 },
+			"facing=west": { "model": "minecraft:block/warped_sign", "y": 270 }
+		}
+	},
 	"assets/minecraft/models/block/oak_sign.json": { "parent": "minecraft:block/sign", "textures": { "sign": "entity/signs/oak" } },
 	"assets/minecraft/models/block/spruce_sign.json": { "parent": "minecraft:block/sign", "textures": { "sign": "entity/signs/spruce" } },
 	"assets/minecraft/models/block/birch_sign.json": { "parent": "minecraft:block/sign", "textures": { "sign": "entity/signs/birch" } },
@@ -98,41 +194,125 @@ export const complement_blocks = {
 				"from": [7.36, 0, 7.36],
 				"to": [8.69333, 9.33333, 8.69333],
 				"faces": {
-					"north": {"uv": [0.5, 8, 1, 15], "texture": "#sign"},
-					"east": {"uv": [0, 8, 0.5, 15], "texture": "#sign"},
-					"south": {"uv": [1.5, 8, 2, 15], "texture": "#sign"},
-					"west": {"uv": [1, 8, 1.5, 15], "texture": "#sign"},
-					"up": {"uv": [0.5, 7, 1, 8], "rotation": 180, "texture": "#sign"},
-					"down": {"uv": [1.5, 7, 1, 8], "texture": "#sign"}
+					"north": { "uv": [0.5, 8, 1, 15], "texture": "#sign" },
+					"east": { "uv": [0, 8, 0.5, 15], "texture": "#sign" },
+					"south": { "uv": [1.5, 8, 2, 15], "texture": "#sign" },
+					"west": { "uv": [1, 8, 1.5, 15], "texture": "#sign" },
+					"up": { "uv": [0.5, 7, 1, 8], "rotation": 180, "texture": "#sign" },
+					"down": { "uv": [1.5, 7, 1, 8], "texture": "#sign" }
 				}
 			},
 			{
 				"from": [0, 9.33, 7.36],
 				"to": [16, 17.33, 8.69333],
 				"faces": {
-					"north": {"uv": [0.5, 1, 6.5, 7], "texture": "#sign"},
-					"east": {"uv": [0, 1, 0.5, 7], "texture": "#sign"},
-					"south": {"uv": [7, 1, 13, 7], "texture": "#sign"},
-					"west": {"uv": [6.5, 1, 7, 7], "texture": "#sign"},
-					"up": {"uv": [0.5, 0, 6.5, 1], "rotation": 180, "texture": "#sign"},
-					"down": {"uv": [12.5, 0, 6.5, 1], "texture": "#sign"}
+					"north": { "uv": [0.5, 1, 6.5, 7], "texture": "#sign" },
+					"east": { "uv": [0, 1, 0.5, 7], "texture": "#sign" },
+					"south": { "uv": [7, 1, 13, 7], "texture": "#sign" },
+					"west": { "uv": [6.5, 1, 7, 7], "texture": "#sign" },
+					"up": { "uv": [0.5, 0, 6.5, 1], "rotation": 180, "texture": "#sign" },
+					"down": { "uv": [12.5, 0, 6.5, 1], "texture": "#sign" }
 				}
 			}
 		]
 	},
 	// wall signs blockstate
-	"assets/minecraft/blockstates/oak_wall_sign.json": { "variants": { "": { "model": "minecraft:block/oak_wall_sign" } } },
-	"assets/minecraft/blockstates/spruce_wall_sign.json": { "variants": { "": { "model": "minecraft:block/spruce_wall_sign" } } },
-	"assets/minecraft/blockstates/birch_wall_sign.json": { "variants": { "": { "model": "minecraft:block/birch_wall_sign" } } },
-	"assets/minecraft/blockstates/jungle_wall_sign.json": { "variants": { "": { "model": "minecraft:block/jungle_wall_sign" } } },
-	"assets/minecraft/blockstates/acacia_wall_sign.json": { "variants": { "": { "model": "minecraft:block/acacia_wall_sign" } } },
-	"assets/minecraft/blockstates/dark_oak_wall_sign.json": { "variants": { "": { "model": "minecraft:block/dark_oak_wall_sign" } } },
-	"assets/minecraft/blockstates/mangrove_wall_sign.json": { "variants": { "": { "model": "minecraft:block/mangrove_wall_sign" } } },
-	"assets/minecraft/blockstates/cherry_wall_sign.json": { "variants": { "": { "model": "minecraft:block/cherry_wall_sign" } } },
-	"assets/minecraft/blockstates/pale_oak_wall_sign.json": { "variants": { "": { "model": "minecraft:block/pale_oak_wall_sign" } } },
-	"assets/minecraft/blockstates/bamboo_wall_sign.json": { "variants": { "": { "model": "minecraft:block/bamboo_wall_sign" } } },
-	"assets/minecraft/blockstates/crimson_wall_sign.json": { "variants": { "": { "model": "minecraft:block/crimson_wall_sign" } } },
-	"assets/minecraft/blockstates/warped_wall_sign.json": { "variants": { "": { "model": "minecraft:block/warped_wall_sign" } } },
+	"assets/minecraft/blockstates/oak_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/oak_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/oak_wall_sign" },
+			"facing=west": { "model": "minecraft:block/oak_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/oak_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/spruce_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/spruce_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/spruce_wall_sign" },
+			"facing=west": { "model": "minecraft:block/spruce_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/spruce_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/birch_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/birch_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/birch_wall_sign" },
+			"facing=west": { "model": "minecraft:block/birch_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/birch_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/jungle_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/jungle_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/jungle_wall_sign" },
+			"facing=west": { "model": "minecraft:block/jungle_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/jungle_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/acacia_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/acacia_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/acacia_wall_sign" },
+			"facing=west": { "model": "minecraft:block/acacia_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/acacia_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/dark_oak_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/dark_oak_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/dark_oak_wall_sign" },
+			"facing=west": { "model": "minecraft:block/dark_oak_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/dark_oak_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/mangrove_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/mangrove_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/mangrove_wall_sign" },
+			"facing=west": { "model": "minecraft:block/mangrove_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/mangrove_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/cherry_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/cherry_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/cherry_wall_sign" },
+			"facing=west": { "model": "minecraft:block/cherry_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/cherry_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/pale_oak_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/pale_oak_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/pale_oak_wall_sign" },
+			"facing=west": { "model": "minecraft:block/pale_oak_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/pale_oak_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/bamboo_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/bamboo_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/bamboo_wall_sign" },
+			"facing=west": { "model": "minecraft:block/bamboo_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/bamboo_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/crimson_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/crimson_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/crimson_wall_sign" },
+			"facing=west": { "model": "minecraft:block/crimson_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/crimson_wall_sign", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/warped_wall_sign.json": {
+		"variants": {
+			"facing=north": { "model": "minecraft:block/warped_wall_sign", "y": 180 },
+			"facing=south": { "model": "minecraft:block/warped_wall_sign" },
+			"facing=west": { "model": "minecraft:block/warped_wall_sign", "y": 90 },
+			"facing=east": { "model": "minecraft:block/warped_wall_sign", "y": 270 }
+		}
+	},
 	// wall signs block models
 	"assets/minecraft/models/block/oak_wall_sign.json": { "parent": "minecraft:block/wall_sign", "textures": { "sign": "entity/signs/oak" } },
 	"assets/minecraft/models/block/spruce_wall_sign.json": { "parent": "minecraft:block/wall_sign", "textures": { "sign": "entity/signs/spruce" } },
@@ -712,5 +892,415 @@ export const complement_blocks = {
 	"assets/minecraft/models/block/white_shulker_box.json": {
 		"parent": "minecraft:block/shulker_box",
 		"textures": { "box": "entity/shulker/shulker_white" }
+	},
+	// banners
+	"assets/minecraft/blockstates/white_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "white" } } } },
+	"assets/minecraft/blockstates/orange_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "orange" } } } },
+	"assets/minecraft/blockstates/magenta_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "magenta" } } } },
+	"assets/minecraft/blockstates/light_blue_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "light_blue" } } } },
+	"assets/minecraft/blockstates/yellow_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "yellow" } } } },
+	"assets/minecraft/blockstates/lime_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "lime" } } } },
+	"assets/minecraft/blockstates/pink_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "pink" } } } },
+	"assets/minecraft/blockstates/gray_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "gray" } } } },
+	"assets/minecraft/blockstates/light_gray_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "light_gray" } } } },
+	"assets/minecraft/blockstates/cyan_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "cyan" } } } },
+	"assets/minecraft/blockstates/purple_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "purple" } } } },
+	"assets/minecraft/blockstates/blue_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "blue" } } } },
+	"assets/minecraft/blockstates/brown_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "brown" } } } },
+	"assets/minecraft/blockstates/green_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "green" } } } },
+	"assets/minecraft/blockstates/red_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "red" } } } },
+	"assets/minecraft/blockstates/black_banner.json": { "variants": { "": { "model": "minecraft:block/banner", "diffuse": { "texture": "#flag", "color": "black" } } } },
+	"assets/minecraft/models/block/banner.json": {
+		"textures": {
+			"base": "entity/banner_base",
+			"flag": "entity/banner/base"
+		},
+		"elements": [
+			{
+				"from": [7.33334, 0, 7.33334],
+				"to": [8.66667, 28, 8.66667],
+				"faces": {
+					"north": { "uv": [12.5, 0.5, 13, 11], "texture": "#base" },
+					"east": { "uv": [12, 0.5, 12.5, 11], "texture": "#base" },
+					"south": { "uv": [11.5, 0.5, 12, 11], "texture": "#base" },
+					"west": { "uv": [11, 0.5, 11.5, 11], "texture": "#base" },
+					"up": { "uv": [12, 0.5, 11.5, 0], "rotation": 180, "texture": "#base" },
+					"down": { "uv": [12.5, 0, 12, 0.5], "rotation": 180, "texture": "#base" }
+				}
+			},
+			{
+				"from": [1.33337, 28, 7.33333],
+				"to": [14.6667, 29.33333, 8.66667],
+				"faces": {
+					"north": { "uv": [6, 11, 11, 11.5], "texture": "#base" },
+					"east": { "uv": [5.5, 11, 6, 11.5], "texture": "#base" },
+					"south": { "uv": [0.5, 11, 5.5, 11.5], "texture": "#base" },
+					"west": { "uv": [0, 11, 0.5, 11.5], "texture": "#base" },
+					"up": { "uv": [5.5, 11, 0.5, 10.5], "rotation": 180, "texture": "#base" },
+					"down": { "uv": [10.5, 10.5, 5.5, 11], "rotation": 180, "texture": "#base" }
+				}
+			},
+			{
+				"from": [1.33333, 1.33333, 8.66667],
+				"to": [14.66667, 29.33333, 9.33333],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 8, 8] },
+				"faces": {
+					"north": { "uv": [5.5, 0.25, 10.5, 10.25], "texture": "#flag" },
+					"east": { "uv": [5.25, 0.25, 5.5, 10.25], "texture": "#flag" },
+					"south": { "uv": [0.25, 0.25, 5.25, 10.25], "texture": "#flag" },
+					"west": { "uv": [0, 0.25, 0.25, 10.25], "texture": "#flag" },
+					"up": { "uv": [5.25, 0.25, 0.25, 0], "rotation": 180, "texture": "#flag" },
+					"down": { "uv": [10.25, 0, 5.25, 0.25], "rotation": 180, "texture": "#flag" }
+				}
+			}
+		]
+	},
+	"assets/minecraft/blockstates/white_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "white" } } } },
+	"assets/minecraft/blockstates/orange_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "orange" } } } },
+	"assets/minecraft/blockstates/magenta_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "magenta" } } } },
+	"assets/minecraft/blockstates/light_blue_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "light_blue" } } } },
+	"assets/minecraft/blockstates/yellow_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "yellow" } } } },
+	"assets/minecraft/blockstates/lime_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "lime" } } } },
+	"assets/minecraft/blockstates/pink_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "pink" } } } },
+	"assets/minecraft/blockstates/gray_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "gray" } } } },
+	"assets/minecraft/blockstates/light_gray_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "light_gray" } } } },
+	"assets/minecraft/blockstates/cyan_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "cyan" } } } },
+	"assets/minecraft/blockstates/purple_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "purple" } } } },
+	"assets/minecraft/blockstates/blue_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "blue" } } } },
+	"assets/minecraft/blockstates/brown_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "brown" } } } },
+	"assets/minecraft/blockstates/green_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "green" } } } },
+	"assets/minecraft/blockstates/red_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "red" } } } },
+	"assets/minecraft/blockstates/black_wall_banner.json": { "variants": { "": { "model": "minecraft:block/wall_banner", "diffuse": { "texture": "#flag", "color": "black" } } } },
+	"assets/minecraft/models/block/wall_banner.json": {
+		"textures": {
+			"flag": "entity/banner/base"
+		},
+		"elements": [
+			{
+				"from": [1.33333, -12, 15.33333],
+				"to": [14.66667, 16, 15.99999],
+				"rotation": { "angle": 0, "axis": "x", "origin": [8, 16, 16] },
+				"faces": {
+					"north": { "uv": [0.25, 0.25, 5.25, 10.25], "texture": "#flag" },
+					"east": { "uv": [0, 0.25, 0.25, 10.25], "texture": "#flag" },
+					"south": { "uv": [5.5, 0.25, 10.5, 10.25], "texture": "#flag" },
+					"west": { "uv": [5.25, 0.25, 5.5, 10.25], "texture": "#flag" },
+					"up": { "uv": [5.25, 0.25, 0.25, 0], "texture": "#flag" },
+					"down": { "uv": [10.25, 0, 5.25, 0.25], "texture": "#flag" }
+				}
+			}
+		]
+	},
+	// beds
+	"assets/minecraft/blockstates/white_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/white_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/white_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/white_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/white_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/white_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/white_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/white_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/white_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/orange_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/orange_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/orange_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/orange_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/orange_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/orange_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/orange_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/orange_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/orange_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/magenta_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/magenta_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/magenta_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/magenta_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/magenta_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/magenta_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/magenta_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/magenta_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/magenta_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/light_blue_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/light_blue_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/light_blue_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/light_blue_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/light_blue_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/light_blue_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/light_blue_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/light_blue_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/light_blue_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/yellow_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/yellow_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/yellow_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/yellow_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/yellow_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/yellow_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/yellow_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/yellow_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/yellow_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/lime_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/lime_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/lime_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/lime_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/lime_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/lime_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/lime_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/lime_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/lime_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/pink_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/pink_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/pink_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/pink_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/pink_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/pink_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/pink_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/pink_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/pink_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/gray_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/gray_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/gray_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/gray_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/gray_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/gray_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/gray_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/gray_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/gray_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/light_gray_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/light_gray_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/light_gray_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/light_gray_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/light_gray_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/light_gray_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/light_gray_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/light_gray_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/light_gray_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/cyan_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/cyan_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/cyan_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/cyan_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/cyan_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/cyan_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/cyan_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/cyan_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/cyan_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/purple_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/purple_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/purple_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/purple_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/purple_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/purple_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/purple_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/purple_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/purple_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/blue_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/blue_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/blue_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/blue_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/blue_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/blue_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/blue_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/blue_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/blue_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/brown_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/brown_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/brown_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/brown_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/brown_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/brown_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/brown_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/brown_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/brown_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/green_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/green_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/green_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/green_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/green_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/green_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/green_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/green_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/green_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/red_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/red_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/red_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/red_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/red_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/red_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/red_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/red_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/red_bed_foot", "y": 270 }
+		}
+	},
+	"assets/minecraft/blockstates/black_bed.json": {
+		"variants": {
+			"foot=false,facing=north": { "model": "minecraft:block/black_bed_head" },
+			"foot=false,facing=east": { "model": "minecraft:block/black_bed_head", "y": 90 },
+			"foot=false,facing=south": { "model": "minecraft:block/black_bed_head", "y": 180 },
+			"foot=false,facing=west": { "model": "minecraft:block/black_bed_head", "y": 270 },
+			"foot=true,facing=north": { "model": "minecraft:block/black_bed_foot" },
+			"foot=true,facing=east": { "model": "minecraft:block/black_bed_foot", "y": 90 },
+			"foot=true,facing=south": { "model": "minecraft:block/black_bed_foot", "y": 180 },
+			"foot=true,facing=west": { "model": "minecraft:block/black_bed_foot", "y": 270 }
+		}
+	},
+	// bed block model head
+	"assets/minecraft/models/block/white_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/white" } },
+	"assets/minecraft/models/block/orange_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/orange" } },
+	"assets/minecraft/models/block/magenta_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/magenta" } },
+	"assets/minecraft/models/block/light_blue_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/light_blue" } },
+	"assets/minecraft/models/block/yellow_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/yellow" } },
+	"assets/minecraft/models/block/lime_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/lime" } },
+	"assets/minecraft/models/block/pink_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/pink" } },
+	"assets/minecraft/models/block/gray_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/gray" } },
+	"assets/minecraft/models/block/light_gray_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/light_gray" } },
+	"assets/minecraft/models/block/cyan_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/cyan" } },
+	"assets/minecraft/models/block/purple_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/purple" } },
+	"assets/minecraft/models/block/blue_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/blue" } },
+	"assets/minecraft/models/block/brown_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/brown" } },
+	"assets/minecraft/models/block/green_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/green" } },
+	"assets/minecraft/models/block/red_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/red" } },
+	"assets/minecraft/models/block/black_bed_head.json": { "parent": "block/bed_head", "textures": { "bed": "entity/bed/black" } },
+	// bed block model foot
+	"assets/minecraft/models/block/white_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/white" } },
+	"assets/minecraft/models/block/orange_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/orange" } },
+	"assets/minecraft/models/block/magenta_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/magenta" } },
+	"assets/minecraft/models/block/light_blue_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/light_blue" } },
+	"assets/minecraft/models/block/yellow_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/yellow" } },
+	"assets/minecraft/models/block/lime_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/lime" } },
+	"assets/minecraft/models/block/pink_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/pink" } },
+	"assets/minecraft/models/block/gray_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/gray" } },
+	"assets/minecraft/models/block/light_gray_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/light_gray" } },
+	"assets/minecraft/models/block/cyan_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/cyan" } },
+	"assets/minecraft/models/block/purple_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/purple" } },
+	"assets/minecraft/models/block/blue_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/blue" } },
+	"assets/minecraft/models/block/brown_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/brown" } },
+	"assets/minecraft/models/block/green_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/green" } },
+	"assets/minecraft/models/block/red_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/red" } },
+	"assets/minecraft/models/block/black_bed_foot.json": { "parent": "block/bed_foot", "textures": { "bed": "entity/bed/black" } },
+	// bed head
+	"assets/minecraft/models/block/bed_head.json": {
+		"elements": [
+			{
+				"from": [0, 3, 0],
+				"to": [16, 9, 16],
+				"faces": {
+					"north": { "uv": [9.5, 0, 5.5, 1.5], "rotation": 180, "texture": "#bed" },
+					"east": { "uv": [0, 1.5, 1.5, 5.5], "rotation": 270, "texture": "#bed" },
+					"south": { "uv": [5.5, 1.5, 1.5, 0], "texture": "#bed" },
+					"west": { "uv": [5.5, 1.5, 7, 5.5], "rotation": 90, "texture": "#bed" },
+					"up": { "uv": [1.5, 1.5, 5.5, 5.5], "rotation": 180, "texture": "#bed" },
+					"down": { "uv": [7, 1.5, 11, 5.5], "texture": "#bed" }
+				}
+			},
+			{
+				"from": [0, 0, 13],
+				"to": [3, 3, 16],
+				"faces": {
+					"north": { "uv": [14.75, 3.75, 15.5, 4.5], "texture": "#bed" },
+					"east": { "uv": [14, 3.75, 14.75, 4.5], "texture": "#bed" },
+					"south": { "uv": [13.25, 3.75, 14, 4.5], "texture": "#bed" },
+					"west": { "uv": [12.5, 3.75, 13.25, 4.5], "texture": "#bed" },
+					"up": { "uv": [14, 3.75, 13.25, 3], "rotation": 180, "texture": "#bed" },
+					"down": { "uv": [14.75, 3, 14, 3.75], "rotation": 180, "texture": "#bed" }
+				}
+			},
+			{
+				"from": [13, 0, 13],
+				"to": [16, 3, 16],
+				"faces": {
+					"north": { "uv": [14, 5.25, 14.75, 6], "texture": "#bed" },
+					"east": { "uv": [13.25, 5.25, 14, 6], "texture": "#bed" },
+					"south": { "uv": [12.5, 5.25, 13.25, 6], "texture": "#bed" },
+					"west": { "uv": [14.75, 5.25, 15.5, 6], "texture": "#bed" },
+					"up": { "uv": [14, 5.25, 13.25, 4.5], "rotation": 90, "texture": "#bed" },
+					"down": { "uv": [14.75, 4.5, 14, 5.25], "rotation": 270, "texture": "#bed" }
+				}
+			}
+		]
+	},
+	// bed foot
+	"assets/minecraft/models/block/bed_foot.json": {
+		"textures": {
+			"bed": "entity/bed/white"
+		},
+		"elements": [
+			{
+				"from": [0, 3, 0],
+				"to": [16, 9, 16],
+				"faces": {
+					"north": { "uv": [9.5, 5.5, 5.5, 7], "rotation": 180, "texture": "#bed" },
+					"east": { "uv": [0, 7, 1.5, 11], "rotation": 270, "texture": "#bed" },
+					"south": { "uv": [5.5, 7, 1.5, 5.5], "texture": "#bed" },
+					"west": { "uv": [5.5, 7, 7, 11], "rotation": 90, "texture": "#bed" },
+					"up": { "uv": [1.5, 7, 5.5, 11], "rotation": 180, "texture": "#bed" },
+					"down": { "uv": [7, 7, 11, 11], "texture": "#bed" }
+				}
+			},
+			{
+				"from": [0, 0, 0],
+				"to": [3, 3, 3],
+				"faces": {
+					"north": { "uv": [12.5, 0.75, 13.25, 1.5], "texture": "#bed" },
+					"east": { "uv": [14.75, 0.75, 15.5, 1.5], "texture": "#bed" },
+					"south": { "uv": [14, 0.75, 14.75, 1.5], "texture": "#bed" },
+					"west": { "uv": [13.25, 0.75, 14, 1.5], "texture": "#bed" },
+					"up": { "uv": [14, 0.75, 13.25, 0], "rotation": 270, "texture": "#bed" },
+					"down": { "uv": [14.75, 0, 14, 0.75], "rotation": 90, "texture": "#bed" }
+				}
+			},
+			{
+				"from": [13, 0, 0],
+				"to": [16, 3, 3],
+				"faces": {
+					"north": { "uv": [13.25, 2.25, 14, 3], "texture": "#bed" },
+					"east": { "uv": [12.5, 2.25, 13.25, 3], "texture": "#bed" },
+					"south": { "uv": [14.75, 2.25, 15.5, 3], "texture": "#bed" },
+					"west": { "uv": [14, 2.25, 14.75, 3], "texture": "#bed" },
+					"up": { "uv": [14, 2.25, 13.25, 1.5], "texture": "#bed" },
+					"down": { "uv": [14.75, 1.5, 14, 2.25], "texture": "#bed" }
+				}
+			}
+		]
 	},
 };

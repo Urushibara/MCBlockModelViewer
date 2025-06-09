@@ -28,6 +28,32 @@ interface FaceRotationResult {
     angle: IAngle;
 }
 
+interface IBlockCustomOption extends IBlockOption {
+    diffuse?: {
+        texture: string;
+        color: string;
+    };
+}
+
+const MinecraftColors: { [key: string]: number } = {
+    white: 0xF9FFFE,
+    orange: 0xF9801D,
+    magenta: 0xC74EBD,
+    light_blue: 0x3AB3DA,
+    yellow: 0xFED83D,
+    lime: 0x80C71F,
+    pink: 0xF38BAA,
+    gray: 0x474F52,
+    light_gray: 0x9D9D97,
+    cyan: 0x169C9C,
+    purple: 0x8932B8,
+    blue: 0x3C44AA,
+    brown: 0x835432,
+    green: 0x5E7C16,
+    red: 0xB02E26,
+    black: 0x1D1D21
+};
+
 /**
  * Minecraftのモデル要素データからThree.jsのメッシュを生成するクラス。
  * 単一の`ModelElement`を基にジオメトリとマテリアルを構築し、
@@ -213,6 +239,13 @@ export class MCElementMesh extends THREE.Object3D {
                         entry.name !== "default" && textureName.includes(entry.name)
                     );
                     materialOptions.color = (match || this._diffuseColors.find(e => e.name === "default")).color;
+                }
+
+                // カスタム染色
+                if ((blockstate as IBlockCustomOption).diffuse && textureEntry.map?.userData?.texture_id){
+                    if (textureEntry.map.userData.texture_id == (blockstate as IBlockCustomOption).diffuse?.texture){
+                        materialOptions.color = MinecraftColors[(blockstate as IBlockCustomOption).diffuse.color];
+                    }
                 }
 
                 // 追加のマテリアルオプションの適用
@@ -706,7 +739,12 @@ export class MCElementMesh extends THREE.Object3D {
         });
         this._animatedMaterials.clear();
 
+        // メッシュの開放
+        this.clear();
+
         // 親からの参照を解除
         this.parent = null;
+
+        console.log("[MCElementMesh] Disposed");
     }
 }

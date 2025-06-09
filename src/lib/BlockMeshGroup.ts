@@ -57,6 +57,7 @@ export class BlockMeshGroup extends THREE.Group {
             this._isFallbackTexLoaded = true;
         }
         if (this._BlockName == blockName) {
+            console.log("same model");
             return false;
         }
         this._blockName = blockName;
@@ -148,7 +149,7 @@ export class BlockMeshGroup extends THREE.Group {
             }
 
             if (modelData.elements) {
-                if (isDebug ) {
+                if (isDebug && false) {
                     console.log(toRaw(modelData.elements));
                 }
 
@@ -236,12 +237,15 @@ export class BlockMeshGroup extends THREE.Group {
     }
 
     public clearBlock():void {
-        this.children.forEach(child => {
+        this.children.forEach((child) => {
             if (child instanceof MCElementMesh) {
                 child.dispose();
             } else if (child.isMesh) {
                 if (child.geometry) child.geometry.dispose();
                 if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
+            }
+            if (child.parent) {
+                child.parent.remove(child);
             }
         });
         this.clear();

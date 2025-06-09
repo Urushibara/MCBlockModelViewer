@@ -61,13 +61,10 @@ export class BlockStateManager {
      * @param blockStateJson - Minecraftのblockstate.jsonの内容
      */
     public setBlockState(blockName: string, blockStateJson: IBlockStateFile): void {
-        if (this.blockName == blockName) {
-            return;
-        }
+        this._cachedPossibleProperties = null; // 新しいブロックが設定されたらキャッシュをクリア
         this.blockName = blockName;
         this.blockStateJson = this._normalizeBlockState(blockStateJson); // 正規化して格納
         this.isMultipart = !!blockStateJson.multipart; // multipartが存在すればtrue
-        this._cachedPossibleProperties = null; // 新しいブロックが設定されたらキャッシュをクリア
     }
 
     /**

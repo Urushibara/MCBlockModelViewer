@@ -5,6 +5,9 @@ import { BlockMeshGroup } from './BlockMeshGroup'; // 必要であればイン�
 
 export class RenderManager {
 
+    public scene: THREE.Scene;
+    public renderer: THREE.WebGLRenderer;
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.scene = new THREE.Scene();

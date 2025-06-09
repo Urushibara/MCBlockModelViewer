@@ -34,12 +34,15 @@ const selectedNamespace = ref < string > ('minecraft');
 // BlockStateManager が提供するUI生成用データ
 const possibleProperties = ref < IPossibleProperty > ({});
 const selectedProperties = ref < Record < string, string | null >> ({});
+const groupsToRender = ref < IBlockOption[] > ([]); // 最終的に BlockMeshGroup に渡すモデルの配列
 
 // 各モデルグループの選択されたインデックスを管理するMap
 // Key: conditionKey (string), Value: selected model index (number)
 const selectedModelGroupIndices = ref < Map < string, number>> (new Map());
 
 let lastLoaddedBlock: string = "";
+
+const useFallbackmodel = ref < boolean > (true);
 
 // ロードされているリソースパックの表示と並べ替え用
 interface LoadedResourcePackItem {
@@ -177,7 +180,6 @@ const updateListsAndUI = () => {
     }
 
     if (blockMeshGroup.value) {
-        renderManager.value?.removeObject(blockMeshGroup.value);
         blockMeshGroup.value.clearBlock();
         blockMeshGroup.value.clearTextureCache();
     }
@@ -242,19 +244,51 @@ watch(selectedBlockName, async (newBlockName) => {
 
     } else {
         if (blockMeshGroup.value && renderManager.value) {
-            renderManager.value.removeObject(blockMeshGroup.value);
             blockMeshGroup.value.clearBlock();
         }
     }
 });
 
 watch(
-    [selectedModelGroupIndices, activeModelGroups],
-    async () => {
-        await applyBlockState();
+    selectedModelGroupIndices,
+    () => {
+        applyBlockState();
     },
     { deep: true }
 );
+
+watch(
+    groupsToRender,
+    () => {
+        renderModel();
+    },
+    { deep: true }
+);
+
+watch(useFallbackmodel, async (newVal) => {
+    jarLoader.useComplementData = newVal;
+    renderManager.value.resetCamera();
+    await loadAndSetBlockState();
+});
+
+const onPropatyChange = () => {
+    
+    const currentActiveGroups = activeModelGroups.value; // computedから取得
+    selectedModelGroupIndices.value.clear(); // まず既存の選択をクリア
+
+    for (const group of currentActiveGroups) {
+        if (group.models.length > 0) {
+            let defaultIndex = 0;
+            if (group.isWeighted) {
+                const weightedIndex = group.models.findIndex(model => typeof model.weight === 'number' && model.weight > 0);
+                if (weightedIndex !== -1) {
+                    defaultIndex = weightedIndex;
+                }
+            }
+            selectedModelGroupIndices.value.set(group.conditionKey || '', defaultIndex);
+        }
+    }
+}
 
 
 // 現在選択されているブロック状態とモデルをロードし、RenderManagerに設定する
@@ -264,7 +298,6 @@ const loadAndSetBlockState = async () => {
     }
 
     if (blockMeshGroup.value) {
-        renderManager.value.removeObject(blockMeshGroup.value);
         blockMeshGroup.value.clearBlock();
     }
 
@@ -287,8 +320,8 @@ const loadAndSetBlockState = async () => {
             modelLoader: blockModelLoader,
             textureLoader: textureLoader
         });
+        renderManager.value.addObject(blockMeshGroup.value);
     }
-    renderManager.value.addObject(blockMeshGroup.value);
 
     // 可能なプロパティを取得し、UIを更新
     possibleProperties.value = blockStateManager.getPossibleProperties();
@@ -340,7 +373,7 @@ const initializeSelectedProperties = async () => {
     // 最終的な決定値を selectedProperties に反映
     selectedProperties.value = newSelectedProps;
 
-    const currentActiveGroups = blockStateManager.getActiveModels(selectedProperties.value);
+    const currentActiveGroups = activeModelGroups.value; // computedから取得
     selectedModelGroupIndices.value.clear(); // まず既存の選択をクリア
 
     for (const group of currentActiveGroups) {
@@ -362,18 +395,18 @@ const applyBlockState = async () => {
     if (!blockStateManager || !blockMeshGroup.value) {
         return;
     }
-
-    const groupsToRender: IBlockOption[] = []; // 最終的に BlockMeshGroup に渡すモデルの配列
-
+    
     const currentActiveModelGroups = activeModelGroups.value;
+
+    groupsToRender.value = [];
 
     for (const group of currentActiveModelGroups) {
         if (group.models.length > 0) {
             const selectedIndexForGroup = selectedModelGroupIndices.value.get(group.conditionKey || '') || 0;
             if (selectedIndexForGroup < group.models.length) {
-                groupsToRender.push(group.models[selectedIndexForGroup]);
+                groupsToRender.value.push(group.models[selectedIndexForGroup]);
             } else {
-                groupsToRender.push(group.models[0]);
+                groupsToRender.value.push(group.models[0]);
                 selectedModelGroupIndices.value.set(group.conditionKey || '', 0); // UIもリセット
                 $toast.open({ message: `Model index for condition '${group.conditionKey}' out of bounds, resetting to 0.`, type: "warning" });
             }
@@ -382,25 +415,33 @@ const applyBlockState = async () => {
 
     console.log("Selected properties:", JSON.stringify(selectedProperties.value));
     console.log("Active model groups:", JSON.stringify(currentActiveModelGroups));
-    console.log("Models to render:", JSON.stringify(groupsToRender));
+    console.log("Models to render:", JSON.stringify(groupsToRender.value));
+};
 
-    if (groupsToRender.length > 0) {
-        const success = await blockMeshGroup.value.prepare(groupsToRender, selectedBlockName.value).catch(error => {
+const renderModel = async () => {
+    if (!blockStateManager || !blockMeshGroup.value) {
+        return;
+    }
+    if (isDebug) {
+        console.log("Try to render.", JSON.stringify(groupsToRender.value));
+    }
+
+    if (groupsToRender.value.length > 0) {
+        blockMeshGroup.value.clearBlock();
+
+        const success = await blockMeshGroup.value.prepare(groupsToRender.value, selectedBlockName.value).catch(error => {
             $toast.open({ message: error.message, type: "warning" });
         });
         if (success) {
-            await blockMeshGroup.value.show(groupsToRender).catch(error => {
+            await blockMeshGroup.value.show(groupsToRender.value).catch(error => {
                 $toast.open({ message: error.message, type: "warning" });
             });
         }
     } else {
-        if (blockMeshGroup.value) {
-            renderManager.value?.removeObject(blockMeshGroup.value);
-            blockMeshGroup.value.clearBlock();
-        }
+        blockMeshGroup.value.clearBlock();
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
-};
+}
 
 // モデルグループの conditionKey が、指定されたプロパティ名を含んでいるか判定します。
 const doesGroupConditionContainProperty = (group: IActiveModelGroup, propName: string): boolean => {
@@ -507,6 +548,9 @@ const saveAsImage = () => {
                 <p v-if="loadedResourcePacks.length === 0" class="no-files-message">No resource packs loaded. Please upload
                     files.</p>
             </div>
+            <div class="use-fallback-models">
+                <input type="checkbox" id="useFallbackmodel" v-model="useFallbackmodel"><label for="useFallbackmodel">Use complement models for the entity blocks</label>
+            </div>
 
             <hr />
             <div>
@@ -533,7 +577,7 @@ const saveAsImage = () => {
                 <div v-if="Object.keys(possibleProperties).length > 0">
                     <div v-for="(propData, propName) in possibleProperties" :key="propName" class="property">
                         <label>{{ propName }}:</label>
-                        <select v-model="selectedProperties[propName]">
+                        <select v-model="selectedProperties[propName]" @change="onPropatyChange">
                             <option v-for="option in propData.options" :key="option.value" :value="option.value">
                                 {{ option.value }}
                             </option>
@@ -749,6 +793,10 @@ const saveAsImage = () => {
     padding: 10px;
     text-align: center;
     color: #888;
+}
+
+.use-fallback-models {
+    text-align: center;
 }
 
 /* Render Box */
