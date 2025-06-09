@@ -56,10 +56,6 @@ export class BlockMeshGroup extends THREE.Group {
             FALLBACK_MATERIAL_CUBE.needsUpdate = true; // マップの更新を通知
             this._isFallbackTexLoaded = true;
         }
-        if (this._BlockName == blockName) {
-            console.log("same model");
-            return false;
-        }
         this._blockName = blockName;
         const uniqueModelRefs = new Set(modelDefs.map(def => def.model));
         const preparePromises = Array.from(uniqueModelRefs).map(modelRef => this._prepareModelAndTextures(modelRef));
@@ -249,6 +245,7 @@ export class BlockMeshGroup extends THREE.Group {
             }
         });
         this.clear();
+        this._modelCache.clear();
     }
 
     /**

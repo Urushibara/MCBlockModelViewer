@@ -239,7 +239,6 @@ watch(selectedNamespace, async (newNamespace) => {
 watch(selectedBlockName, async (newBlockName) => {
 
     if (newBlockName && renderManager.value) {
-        renderManager.value.resetCamera();
         await loadAndSetBlockState();
 
     } else {
@@ -267,7 +266,7 @@ watch(
 
 watch(useFallbackmodel, async (newVal) => {
     jarLoader.useComplementData = newVal;
-    renderManager.value.resetCamera();
+    blockModelLoader.clearCache();
     await loadAndSetBlockState();
 });
 
@@ -425,6 +424,7 @@ const renderModel = async () => {
     if (isDebug) {
         console.log("Try to render.", JSON.stringify(groupsToRender.value));
     }
+    renderManager.value.resetCamera();
 
     if (groupsToRender.value.length > 0) {
         blockMeshGroup.value.clearBlock();
@@ -441,6 +441,14 @@ const renderModel = async () => {
         blockMeshGroup.value.clearBlock();
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
+}
+
+const resetCamera = () => {
+    renderManager.value.resetCamera();
+}
+
+const rotate = () => {
+    renderManager.value?.rotateCamera(45);
 }
 
 // モデルグループの conditionKey が、指定されたプロパティ名を含んでいるか判定します。
@@ -528,7 +536,7 @@ const saveAsImage = () => {
     <div class="main-container ui-box">
         <div class="controls-panel">
             <div>
-                <label>Vanilla file:</label><input type="file" @change="onVanillaFileChange" accept=".jar" />
+                <label>Vanilla Jar:</label><input type="file" @change="onVanillaFileChange" accept=".jar" />
             </div>
             <div>
                 <label>Resources:</label><input type="file" @change="onResourcePackFileChange" accept=".zip,.jar"
@@ -631,7 +639,9 @@ const saveAsImage = () => {
                 <label for="size1">300x300px</label>
                 <input type="radio" id="size2" name="canvasSize" value="600" v-model.number="canvasSize">
                 <label for="size2">600x600px</label>
-                <button @click="saveAsImage">Save as PNG</button>
+                <button @click="rotate">Rotate 45°</button>
+                <button @click="resetCamera">Reset Cam</button>
+                <button @click="saveAsImage" class="save-btn">Save as PNG</button>
             </div>
         </div>
     </div>
@@ -829,6 +839,7 @@ const saveAsImage = () => {
 }
 
 .size-ui-box label {
+    min-width: auto;
     margin-right: 10px;
 }
 
@@ -837,15 +848,18 @@ const saveAsImage = () => {
 }
 
 .size-ui-box button {
-    background-color: #28a745;
+    background-color: #7b7b7b;
     color: white;
     border: none;
     border-radius: 4px;
-    padding: 8px 15px;
+    padding: 5px 12px;
     cursor: pointer;
-    font-size: 1em;
-    margin-left: 20px;
+    margin: 4px;
     transition: background-color 0.2s ease;
+}
+
+.size-ui-box .save-btn {
+    background-color: #28a745;
 }
 
 .size-ui-box button:hover {

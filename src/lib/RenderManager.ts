@@ -66,7 +66,7 @@ export class RenderManager {
         // ワールド位置に戻す
         this.camera.position.copy(rotatedPosition.add(this.scene.position));
 */
-        // カメラは中心を向く
+        // カメラを中心へ向ける
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
 
@@ -75,6 +75,8 @@ export class RenderManager {
     }
 
     initLighting() {
+        this._lights = [];
+
         const dirLight = new THREE.DirectionalLight(0xffffff, Math.PI * 0.47); // 明るい白色の指向性ライト
         dirLight.position.set(0.36, 0, -1).normalize(); // ライトの方向を設定
         dirLight.castShadow = true;
@@ -87,18 +89,22 @@ export class RenderManager {
         dirLight.shadow.camera.far = 3500;
         dirLight.shadow.bias = -0.0001;
         this.scene.add(dirLight);
+        this._lights.push(dirLight);
 
         const dirLight2 = dirLight.clone();
         dirLight2.position.set(-0.36, 0, 1).normalize();
         this.scene.add(dirLight2);
+        this._lights.push(dirLight2);
 
         const dirLight3 = dirLight.clone();
         dirLight3.intensity = Math.PI * 0.8;
         dirLight3.position.set(0, 1, 0).normalize();
         this.scene.add(dirLight3);
+        this._lights.push(dirLight3);
 
         const ambient = new THREE.AmbientLight(0xffffff, 0.5); // 白色環境光
         this.scene.add(ambient);
+        this._lights.push(ambient);
     }
 
     // --- 変更点: addObjectで内部マテリアルを走査 ---
@@ -119,6 +125,23 @@ export class RenderManager {
 
     lights() {
         return this._lights;
+    }
+
+    rotateCamera(angle: number) {
+        const initialPosition = this.camera.position;
+
+        // 中心を原点にしたローカル位置に変換
+        const relativePosition = initialPosition.clone().sub(this.scene.position);
+
+        // Y軸で180度回転（Math.PIラジアン）
+        const rotatedPosition = relativePosition.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(angle));
+
+        // ワールド位置に戻す
+        this.camera.position.copy(rotatedPosition.add(this.scene.position));
+        
+        // カメラを中心へ向ける
+        this.camera.lookAt(this.scene.position);
+        this.camera.updateProjectionMatrix();
     }
 
     startAnimation() {

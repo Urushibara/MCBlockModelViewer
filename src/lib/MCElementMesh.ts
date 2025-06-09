@@ -242,10 +242,8 @@ export class MCElementMesh extends THREE.Object3D {
                 }
 
                 // カスタム染色
-                if ((blockstate as IBlockCustomOption).diffuse && textureEntry.map?.userData?.texture_id){
-                    if (textureEntry.map.userData.texture_id == (blockstate as IBlockCustomOption).diffuse?.texture){
-                        materialOptions.color = MinecraftColors[(blockstate as IBlockCustomOption).diffuse.color];
-                    }
+                if ((blockstate as IBlockCustomOption).diffuse && faceData.texture == (blockstate as IBlockCustomOption).diffuse?.texture){
+                    materialOptions.color = MinecraftColors[(blockstate as IBlockCustomOption).diffuse.color];
                 }
 
                 // 追加のマテリアルオプションの適用

@@ -40,16 +40,6 @@ export class BlockStateManager {
     // 現在のブロック状態がMultipart形式であるかどうか
     private isMultipart: boolean = false;
 
-    // `getPossibleProperties` の結果をキャッシュしてパフォーマンスを向上
-    private _cachedPossibleProperties: {
-        [propName: string]: {
-            type: 'string', // 現在はstringのみを想定
-            values: Set<string>,
-            defaultValue: string | null,
-            options: { value: string, hasMultipleModels: boolean }[]
-        }
-    } | null = null;
-
     constructor() {
         // コンストラクタでの特別な初期化は不要です。
         // プロパティは `setBlockState` で設定されます。
@@ -61,7 +51,6 @@ export class BlockStateManager {
      * @param blockStateJson - Minecraftのblockstate.jsonの内容
      */
     public setBlockState(blockName: string, blockStateJson: IBlockStateFile): void {
-        this._cachedPossibleProperties = null; // 新しいブロックが設定されたらキャッシュをクリア
         this.blockName = blockName;
         this.blockStateJson = this._normalizeBlockState(blockStateJson); // 正規化して格納
         this.isMultipart = !!blockStateJson.multipart; // multipartが存在すればtrue
@@ -140,9 +129,6 @@ export class BlockStateManager {
      * @returns プロパティ名 -> `{ type: string, values: Set<string>, defaultValue: string | null, options: { value: string, hasMultipleModels: boolean }[] }` のマップ
      */
     public getPossibleProperties(): IPossibleProperty {
-        if (this._cachedPossibleProperties) {
-            return this._cachedPossibleProperties;
-        }
 
         const possibleProps: IPossibleProperty = {};
 
@@ -151,6 +137,7 @@ export class BlockStateManager {
          * パイプ区切りの値を個別に処理します。
          */
         const addPropertyValues = (propName: string, valueToAdd: string): void => {
+            if (valueToAdd == "*") return;
             if (!possibleProps[propName]) {
                 possibleProps[propName] = { type: 'string', values: new Set(), defaultValue: null, options: [] };
             }
@@ -270,7 +257,11 @@ export class BlockStateManager {
                 });
             } else {
                 // その他のプロパティは辞書順ソート
-                sortedValues.sort((a, b) => a.localeCompare(b));
+                sortedValues.sort((a, b) => {
+                    if (a === 'none') return -1;
+                    if (b === 'none') return 1;
+                    return a.localeCompare(b);
+                });
             }
 
             // optionsプロパティの更新
@@ -484,7 +475,7 @@ export class BlockStateManager {
                 expectedValuesArray = expectedValue;
             } else {
                 // `expectedValue` が文字列の場合、パイプで分割して配列にする
-                expectedValuesArray = String(expectedValue).split('|').map(v => v.trim());
+                expectedValuesArray = String(expectedValue).split('|');
             }
 
             // 実際の値が、期待される値の配列のいずれかに含まれているかチェック
