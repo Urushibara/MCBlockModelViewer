@@ -73,25 +73,6 @@ export class BlockStateManager {
         const isPureBoolean = (hasTrue || hasFalse) && values.length === (hasTrue && hasFalse ? 2 : 1);
         const isNumericOnly = values.every(v => !isNaN(Number(v)));
 
-        // 1. 純粋なBoolean型の場合 (例: lit, powered, open)
-        if (isPureBoolean) {
-            return hasFalse ? 'false' : 'true'; // 'false' があれば 'false'、なければ 'true'
-        }
-
-        // 2. 数値型の場合 (例: age, bites, rotation)
-        if (isNumericOnly) {
-            return values.includes('0') ? '0' : values[0]; // '0' があれば '0'、なければ最初の値
-        }
-
-        // 3. 特定のプロパティ名とEnum値のパターン
-        // 'up', 'down', 'west', 'east', 'north', 'south'のような接続プロパティ
-        const directionalProps = ['up', 'down', 'west', 'east', 'north', 'south'];
-        if (directionalProps.includes(propName)) {
-            if (values.includes('none')) return 'none';     // 例: レッドストーンワイヤー
-            if (values.includes('false')) return 'false';   // 例: フェンス
-            if (values.includes('straight')) return 'straight'; // 特定の接続タイプ（例: 鉄格子など）
-        }
-
         // 4. その他のEnumプロパティに対する優先順位リスト
         const specificDefaultCandidates: { [key: string]: string[] } = {
             'facing': ['up', 'south'],
@@ -105,6 +86,7 @@ export class BlockStateManager {
             'door_hinge': ['left', 'right'],
             'part': ['foot', 'head'],
             'orientation': ['south_up'],
+            'down': ['true'],
         };
 
         if (specificDefaultCandidates[propName]) {
@@ -113,6 +95,25 @@ export class BlockStateManager {
                     return preferredValue;
                 }
             }
+        }
+
+        // 3. 特定のプロパティ名とEnum値のパターン
+        // 'up', 'down', 'west', 'east', 'north', 'south'のような接続プロパティ
+        const directionalProps = ['up', 'down', 'west', 'east', 'north', 'south'];
+        if (directionalProps.includes(propName)) {
+            if (values.includes('none')) return 'none';     // 例: レッドストーンワイヤー
+            if (values.includes('false')) return 'false';   // 例: フェンス
+            if (values.includes('straight')) return 'straight'; // 特定の接続タイプ（例: 鉄格子など）
+        }
+
+        // 1. 純粋なBoolean型の場合 (例: lit, powered, open)
+        if (isPureBoolean) {
+            return hasFalse ? 'false' : 'true'; // 'false' があれば 'false'、なければ 'true'
+        }
+
+        // 2. 数値型の場合 (例: age, bites, rotation)
+        if (isNumericOnly) {
+            return values.includes('0') ? '0' : values[0]; // '0' があれば '0'、なければ最初の値
         }
 
         // 5. どのルールにも当てはまらない場合の汎用的なフォールバック
@@ -467,10 +468,8 @@ export class BlockStateManager {
                 return false;
             }
 
-            let expectedValuesArray: string[];
-
             // `expectedValue` をパイプで分割して配列にする
-            expectedValuesArray = String(expectedValue).split('|');
+            const expectedValuesArray = String(expectedValue).split('|');
 
             // 実際の値が、期待される値の配列のいずれかに含まれているかチェック
             if (!expectedValuesArray.includes(actualValue)) {

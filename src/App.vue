@@ -348,7 +348,7 @@ const initializeSelectedProperties = async () => {
 
     // Step 2: 現在のデフォルト値でモデルを取得し、表示されるモデルがあるかチェック
     if (activeModelGroups.value.length === 0) {
-        console.log("Default properties resulted in no visible models. Attempting to adjust first property.");
+        //console.log("Default properties resulted in no visible models. Attempting to adjust first property.");
 
         // Step 3: 最初のプロパティを見つけて、デフォルト以外の値で試す
         if (propNames.length > 0) {
@@ -362,9 +362,9 @@ const initializeSelectedProperties = async () => {
 
             if (alternativeOption) {
                 newSelectedProps[firstPropName] = alternativeOption.value;
-                console.log(`Adjusted '${firstPropName}' to '${alternativeOption.value}' for better initial visibility.`);
+                console.log(`Adjusted '${firstPropName}' to '${alternativeOption.value}' for better initial visibility for '${selectedBlockName.value}'.`);
             } else {
-                console.log(`No alternative found for '${firstPropName}'. Keeping default.`);
+                console.log(`No alternative found for '${firstPropName}'. Keeping default for '${selectedBlockName.value}'.`);
             }
         }
     }
@@ -412,15 +412,17 @@ const applyBlockState = async () => {
         }
     }
 
-    console.log("Selected properties:", JSON.stringify(selectedProperties.value));
-    console.log("Active model groups:", JSON.stringify(currentActiveModelGroups));
+    if (isDebug && false) {
+        console.log("Selected properties:", JSON.stringify(selectedProperties.value));
+        console.log("Active model groups:", JSON.stringify(currentActiveModelGroups));
+    }
 };
 
 const renderModel = async () => {
     if (!blockStateManager || !blockMeshGroup.value) {
         return;
     }
-    if (isDebug) {
+    if (isDebug && false) {
         console.log("Attempt to render:", JSON.stringify(groupsToRender.value));
     }
 

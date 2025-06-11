@@ -55,7 +55,7 @@ export class MCTextureLoader {
      * @returns {Promise<MCTextures>} ロードされた MCTextures オブジェクトのPromise
      */
     public async loadTexture(textureRef: string, textureId: string | null): Promise< MCTextures > {
-        const key = `${textureId}@${textureRef}` || textureRef;
+        const key = textureId ? `${textureId}@${textureRef}` : textureRef;
         if (this.textures.has(key)) {
             const texture = this.textures.get(key);
             if (texture) return texture;
@@ -186,7 +186,7 @@ export class MCTextureLoader {
         canvas.height = height;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        if (!ctx) throw "[MCTextureLoader] Failed to get context from image.";
+        if (!ctx) throw new Error("[MCTextureLoader] Failed to get context from image.");
 
         ctx.drawImage(image, 0, 0);
 
@@ -247,7 +247,7 @@ export class MCTextureLoader {
         canvas.width = 2; // 2x2ピクセル
         canvas.height = 2;
         const ctx = canvas.getContext("2d");
-        if (!ctx) throw "[MCTextureLoader] Failed to get context from image.";
+        if (!ctx) throw new Error("[MCTextureLoader] Failed to get context from image.");
         const imgdata = new ImageData(pixels, 2, 2);
         ctx.putImageData(imgdata, 0, 0);
 

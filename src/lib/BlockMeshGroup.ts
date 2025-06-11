@@ -62,7 +62,9 @@ export class BlockMeshGroup extends THREE.Group {
         const preparePromises = Array.from(uniqueModelRefs).map(modelRef => this._prepareModelAndTextures(modelRef));
         try {
             await Promise.all(preparePromises);
-            console.log(`[BlockMeshGroup] All required models and textures prepared for '${blockName}'.`);
+            if (isDebug && false) {
+                console.log(`[BlockMeshGroup] All required models and textures prepared for '${blockName}'.`);
+            }
             return true;
         } catch(error) {
             this._addFallbackCube();
@@ -100,7 +102,9 @@ export class BlockMeshGroup extends THREE.Group {
                 }
                 await Promise.all(textureLoadPromises);
             }
-            console.log(`[BlockMeshGroup] Model and textures for '${modelRef}' prepared successfully.`);
+            if (isDebug && false) {
+                console.log(`[BlockMeshGroup] Model and textures for '${modelRef}' prepared successfully.`);
+            }
 
         } catch (error) {
             console.error(`[BlockMeshGroup] Error preparing model '${modelRef}':`, error);

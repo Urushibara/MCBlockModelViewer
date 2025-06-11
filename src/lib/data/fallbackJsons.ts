@@ -26,40 +26,23 @@ export const complement_blocks = {
 				"from": [0, 0, 0],
 				"to": [16, 13, 16],
 				"faces": {
-					"up": { "uv": [0, 0, 16, 16], "texture": "#still", "tintindex": 0 },
-					"down": { "uv": [0, 0, 16, 16], "texture": "#still", "tintindex": 0 }
+					"north": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "north", "tintindex":0},
+					"east": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "east", "tintindex":0},
+					"south": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "south", "tintindex":0},
+					"west": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "west", "tintindex":0},
+					"up": {"uv": [0, 0, 16, 16], "texture": "#still", "tintindex":0},
+					"down": {"uv": [0, 0, 16, 16], "texture": "#still", "cullface": "down", "tintindex":0}
 				}
 			},
 			{
-				"from": [0, 0, 0],
-				"to": [16, 13, 0],
+				"from": [15.998, 0.002, 0.002],
+				"to": [0.002, 12.998, 15.998],
 				"faces": {
-					"north": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0 },
-					"south": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0, "cullface": "north" }
-				}
-			},
-			{
-				"from": [16, 0, 0],
-				"to": [16, 13, 16],
-				"faces": {
-					"east": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0 },
-					"west": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0, "cullface": "east" }
-				}
-			},
-			{
-				"from": [0, 0, 0],
-				"to": [0, 13, 16],
-				"faces": {
-					"east": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0, "cullface": "west" },
-					"west": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0 }
-				}
-			},
-			{
-				"from": [0, 0, 16],
-				"to": [16, 13, 16],
-				"faces": {
-					"north": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0, "cullface": "south" },
-					"south": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "tintindex": 0 }
+					"north": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "south", "tintindex":0},
+					"east": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "west", "tintindex":0},
+					"south": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "north", "tintindex":0},
+					"west": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "east", "tintindex":0},
+					"up": {"uv": [16, 0, 0, 16], "texture": "#still", "tintindex":0}
 				}
 			}
 		]

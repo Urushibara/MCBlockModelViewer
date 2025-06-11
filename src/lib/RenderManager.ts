@@ -79,8 +79,8 @@ export class RenderManager {
     public initLighting() {
         this._lights = [];
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, Math.PI * 0.47); // 明るい白色の指向性ライト
-        dirLight.position.set(0.36, 0, -1).normalize(); // ライトの方向を設定
+        const dirLight = new THREE.DirectionalLight(0xF0F2FF, Math.PI * 0.8000); // 明るい白色の指向性ライト
+        dirLight.position.set(0.5452, 0, -1.00).normalize(); // ライトの方向を設定
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.set(2048, 2048);
         const d = 50;
@@ -93,20 +93,22 @@ export class RenderManager {
         this.scene.add(dirLight);
         this._lights.push(dirLight);
 
+        const L1P = dirLight.position;
         const dirLight2 = dirLight.clone();
-        dirLight2.position.set(-0.36, 0, 1).normalize();
+        dirLight2.position.set(-L1P.x, 0, -L1P.z);
         this.scene.add(dirLight2);
         this._lights.push(dirLight2);
 
-        const dirLight3 = dirLight.clone();
-        dirLight3.intensity = Math.PI * 0.8;
+        const dirLight3 = new THREE.DirectionalLight(0xFDFEFF, Math.PI * 0.980);
         dirLight3.position.set(0, 1, 0).normalize();
         this.scene.add(dirLight3);
         this._lights.push(dirLight3);
 
-        const ambient = new THREE.AmbientLight(0xffffff, 0.5); // 白色環境光
-        this.scene.add(ambient);
-        this._lights.push(ambient);
+        const dirLight4 = dirLight.clone();
+        dirLight4.intensity = Math.PI * 0.20;
+        dirLight4.position.set(0, -1, 0).normalize();
+        this.scene.add(dirLight4);
+        this._lights.push(dirLight4);
     }
 
     public addObject(obj: THREE.Object3D) {

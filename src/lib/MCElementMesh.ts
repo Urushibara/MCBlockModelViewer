@@ -307,7 +307,7 @@ export class MCElementMesh extends THREE.Object3D {
                 height = Math.abs(to[z] - from[z]); // Z軸はThree.jsの正規化済み座標を使う
                 geometry = new THREE.PlaneGeometry(width, height); // PlaneGeometryはデフォルトでXY平面に作成
                 if (this._shouldReverseWinding('y', from, to)) {
-                    geometry.scale(1, -1, 1); //法線の向きを反転させる
+                    geometry.scale(-1, 1, 1); //法線の向きを反転させる
                 }
 
                 // Three.jsのワールド原点(0,0,0)を中心に配置するためのオフセット
@@ -328,7 +328,7 @@ export class MCElementMesh extends THREE.Object3D {
                 height = Math.abs(to[y] - from[y]);
                 geometry = new THREE.PlaneGeometry(width, height); // PlaneGeometryはデフォルトでXY平面に作成
                 if (this._shouldReverseWinding('z', from, to)) {
-                    geometry.scale(1, -1, 1); //法線の向きを反転させる
+                    geometry.scale(-1, 1, 1); //法線の向きを反転させる
                 }
 
                 // Three.jsのワールド原点(0,0,0)を中心に配置するためのオフセット
@@ -353,7 +353,7 @@ export class MCElementMesh extends THREE.Object3D {
                 height = Math.abs(to[y] - from[y]);
                 geometry = new THREE.PlaneGeometry(width, height); // PlaneGeometryはデフォルトでXY平面に作成
                 if (this._shouldReverseWinding('x', from, to)) {
-                    geometry.scale(1, -1, 1); //法線の向きを反転させる
+                    geometry.scale(-1, 1, 1); //法線の向きを反転させる
                 }
 
                 // Three.jsのワールド原点(0,0,0)を中心に配置するためのオフセット
