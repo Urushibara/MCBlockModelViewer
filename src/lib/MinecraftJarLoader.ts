@@ -67,59 +67,6 @@ export class MinecraftJarLoader {
     }
 
     /**
-     * ロードされているZIPファイルのIDリストを、現在の優先順位で取得します。
-     * リストの最後が最も優先度が高いファイルです。
-     * @returns {string[]} ロードされているZIPファイルのIDの配列
-     */
-    public getLoadedZipIds(): string[] {
-        return this.loadedZips.map(lz => lz.id);
-    }
-
-    /**
-     * ロードされているZIPファイルの優先順位を再編成します。
-     * 指定されたIDの順序に従って、ZIPファイルの検索順序を決定します。
-     * リストの最後にあるIDのZIPファイルが最も優先されます。
-     * @param {string[]} orderedIds - 新しい優先順位で並べられたZIPファイルのIDの配列
-     * @throws {Error} 存在しないIDが含まれている場合、または全てのロード済みZIPがリストに含まれていない場合
-     */
-    public reorderZips(orderedIds: string[]): void {
-        const newOrderedZips: LoadedZip[] = [];
-        const existingIds = new Set(this.loadedZips.map(lz => lz.id));
-        const missingIdsInNewOrder = orderedIds.filter(id => !existingIds.has(id));
-        const missingIdsFromCurrent = Array.from(existingIds).filter(id => !orderedIds.includes(id));
-
-        if (missingIdsInNewOrder.length > 0) {
-            throw new Error(`[MinecraftJarLoader] reorderZips: Specified IDs not found in loaded ZIPs: ${missingIdsInNewOrder.join(', ')}`);
-        }
-        if (missingIdsFromCurrent.length > 0) {
-             console.warn(`[MinecraftJarLoader] reorderZips: Some currently loaded ZIPs are not in the new order and will be excluded: ${missingIdsFromCurrent.join(', ')}`);
-             // または、throw new Error("All currently loaded ZIPs must be included in the new order array.");
-        }
-
-
-        // 新しい順序に従ってZIPファイルを再構築
-        for (const id of orderedIds) {
-            const foundZip = this.loadedZips.find(lz => lz.id === id);
-            if (foundZip) {
-                newOrderedZips.push(foundZip);
-            }
-            // else {
-            //     // このケースは上記のmissingIdsInNewOrderチェックで捕捉されるはずだが、念のため
-            //     console.warn(`[MinecraftJarLoader] reorderZips: ID "${id}" not found among loaded ZIPs. Skipping.`);
-            // }
-        }
-
-        // ここで、もし新しい順序に含まれていないが現在ロードされているZIPが存在する場合の扱いは要検討。
-        // 例: warningを出して無視するか、エラーにするか。
-        // 今回の実装では、orderedIdsにないものはnewOrderedZipsに含まれない。
-        // したがって、orderedIdsには現在ロードされているすべてのZIPのIDが含まれるべき。
-
-        this.loadedZips = newOrderedZips;
-        console.log("[MinecraftJarLoader] ZIP files reordered successfully. New order (highest priority last):", this.loadedZips.map(lz => lz.id));
-    }
-
-
-    /**
      * JARファイル内の指定されたパスのテキストコンテンツを取得します。
      * 複数のZIPファイルがロードされている場合、優先順位が高い（配列の最後にある）ファイルから順に検索します。
      * @param {string} path - ZIPファイル内のパス (例: "assets/minecraft/blockstates/stone.json")
@@ -203,7 +150,7 @@ export class MinecraftJarLoader {
         const prefix = `assets/${namespace}/blockstates/`;
         // すべてのZIPファイルを走査してブロック状態名を集める
         this.loadedZips.forEach(({ zip }) => {
-            zip.forEach((relativePath, file) => {
+            zip.forEach( relativePath => {
                 if (relativePath.startsWith(prefix) && relativePath.endsWith('.json')) {
                     const blockstateName = relativePath.substring(prefix.length, relativePath.length - '.json'.length);
                     blockstateNames.add(blockstateName);
@@ -227,7 +174,7 @@ export class MinecraftJarLoader {
         }
 
         this.loadedZips.forEach(({ zip }) => {
-            zip.forEach((relativePath, file) => {
+            zip.forEach( relativePath => {
                 if (relativePath.startsWith('assets/')) {
                     const parts = relativePath.split('/');
                     if (parts.length >= 2) {

@@ -1,29 +1,42 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import { BlockMeshGroup } from './BlockMeshGroup'; // 必要であればインポート
+import type { MCAnimatedBasicMaterial } from './MCAnimatedMaterials';
 
 export class RenderManager {
 
-    public scene: THREE.Scene;
     public renderer: THREE.WebGLRenderer;
+    public scene: THREE.Scene;
+    public camera: THREE.Camera;
+    public controls: OrbitControls;
+    public canvas: HTMLCanvasElement;
+    public width: number;
+    public height: number;
+    public viewSize: number;
+    public aspectRatio: number;
+    public clock:THREE.Clock;
+    public objects: any[];
+    private _isAnimating: boolean;
+    private _lights: any[];
+    private _animationFrameId: number;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.scene = new THREE.Scene();
 
-        this.width = canvas.getAttribute("width") || "0"; // デフォルト値を追加
-        this.height = canvas.getAttribute("height") || "0"; // デフォルト値を追加
+        const width = canvas.getAttribute("width") || "0"; // デフォルト値を追加
+        const height = canvas.getAttribute("height") || "0"; // デフォルト値を追加
 
         // widthとheightを数値に変換
-        this.width = parseFloat(this.width as string);
-        this.height = parseFloat(this.height as string);
+        this.width = parseFloat(width as string);
+        this.height = parseFloat(height as string);
 
         this.viewSize = 25.3;
         this.aspectRatio = this.width / this.height;
 
         this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, canvas: canvas, preserveDrawingBuffer: true });
-	    this.renderer.setClearColor(0xFFFFFF, 0);
+        this.renderer.setClearColor(0xFFFFFF, 0);
         this.renderer.setSize(this.width, this.height);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.toneMapping = THREE.NoToneMapping;
@@ -42,7 +55,7 @@ export class RenderManager {
         this.startAnimation();
     }
 
-    initCamera() {
+    public initCamera() {
         const halfW = this.aspectRatio * this.viewSize / 2;
         const halfH = this.viewSize / 2;
 
@@ -51,21 +64,10 @@ export class RenderManager {
         );
 
         const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
-        
+
         // カメラの初期位置
         this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
-/*
-        const initialPosition = this.camera.position;
-
-        // 中心を原点にしたローカル位置に変換
-        const relativePosition = initialPosition.clone().sub(this.scene.position);
-
-        // Y軸で180度回転（Math.PIラジアン）
-        const rotatedPosition = relativePosition.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-
-        // ワールド位置に戻す
-        this.camera.position.copy(rotatedPosition.add(this.scene.position));
-*/
+        
         // カメラを中心へ向ける
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
@@ -74,7 +76,7 @@ export class RenderManager {
         this.controls.enableKeys = false;
     }
 
-    initLighting() {
+    public initLighting() {
         this._lights = [];
 
         const dirLight = new THREE.DirectionalLight(0xffffff, Math.PI * 0.47); // 明るい白色の指向性ライト
@@ -107,27 +109,25 @@ export class RenderManager {
         this._lights.push(ambient);
     }
 
-    // --- 変更点: addObjectで内部マテリアルを走査 ---
-    addObject(obj: THREE.Object3D) {
+    public addObject(obj: THREE.Object3D) {
         this.scene.add(obj);
         this.objects.push(obj);
     }
 
-    // --- 変更点: removeObjectで内部マテリアルを解除 ---
-    removeObject(obj: THREE.Object3D) {
+    public removeObject(obj: THREE.Object3D) {
         this.scene.remove(obj);
         this.objects = this.objects.filter(o => o !== obj);
     }
 
-    resetCamera() {
+    public resetCamera() {
         this.controls.reset();
     }
 
-    lights() {
+    public lights() {
         return this._lights;
     }
 
-    rotateCamera(angle: number) {
+    public rotateCamera(angle: number) {
         const initialPosition = this.camera.position;
 
         // 中心を原点にしたローカル位置に変換
@@ -138,13 +138,13 @@ export class RenderManager {
 
         // ワールド位置に戻す
         this.camera.position.copy(rotatedPosition.add(this.scene.position));
-        
+
         // カメラを中心へ向ける
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
     }
 
-    startAnimation() {
+    public startAnimation() {
         if (!this._isAnimating) {
             this._isAnimating = true;
             this._animationFrameId = requestAnimationFrame(this.animate);
@@ -152,7 +152,7 @@ export class RenderManager {
         }
     }
 
-    stopAnimation() {
+    public stopAnimation() {
         if (this._isAnimating) {
             cancelAnimationFrame(this._animationFrameId as number);
             this._isAnimating = false;
@@ -160,7 +160,7 @@ export class RenderManager {
         }
     }
 
-    setAnimationProgress(progress: number) {
+    public setAnimationProgress(progress: number) {
         // アニメーションを一時停止していることを確認
         if (this._isAnimating) {
             console.warn("Animation is running. Stop animation first before setting a specific frame.");
@@ -168,20 +168,20 @@ export class RenderManager {
         }
         this.objects.forEach(obj => {
             if ('setFrame' in obj && typeof (obj as any).setFrame === 'function') {
-                animatedMat.setFrame(progress);
+                (obj as MCAnimatedBasicMaterial).setFrame(progress);
             }
         });
         this.renderer.render(this.scene, this.camera);
     }
 
-    animate() {
+    public animate() {
         if (!this._isAnimating) {
             return;
         }
 
         const delta = this.clock.getDelta(); // 前のフレームからの経過時間を取得
         const deltaTimeMs = delta * 1000; // MCAnimatedMaterial がミリ秒を期待するため変換
-        
+
         // ----------------------------------------------------
         this.objects.forEach(obj => {
             if ('updateAnimation' in obj && typeof (obj as BlockMeshGroup).updateAnimation === 'function') {
@@ -193,7 +193,7 @@ export class RenderManager {
         this._animationFrameId = requestAnimationFrame(this.animate);
     }
 
-    resize(newSize: number) {
+    public resize(newSize: number) {
         this.width = newSize;
         this.height = newSize;
         this.canvas.setAttribute('width', this.width.toString());

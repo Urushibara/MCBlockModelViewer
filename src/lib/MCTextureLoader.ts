@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import { MinecraftJarLoader } from './MinecraftJarLoader';
 
 export interface MCTextures {
-    map: THREE.Texture;
-    alphaMap?: THREE.Texture;
+    map: THREE.Texture,
+    alphaMap?: THREE.Texture,
+    transparent: boolean
 }
 
 /**
@@ -22,14 +23,14 @@ export interface TextureUserData {
 
 export class MCTextureLoader {
     // プライベートフィールドから通常のプロパティに変更
-    static _cachedMissingTexture = null; 
-    _jarLoader; // MinecraftJarLoader のインスタンスを保持
-    textures = new Map<string, MCTextures>(); // ロード済みのテクスチャをキャッシュ
+    static _cachedMissingTexture = null;
+    private _jarLoader: MinecraftJarLoader; // MinecraftJarLoader のインスタンスを保持
+    public textures = new Map<string, MCTextures>(); // ロード済みのテクスチャをキャッシュ
 
     /**
      * @param {MinecraftJarLoader} jarLoader - MinecraftJarLoader のインスタンス
      */
-    constructor(jarLoader) {
+    constructor(jarLoader: MinecraftJarLoader) {
         this._jarLoader = jarLoader;
     }
 
@@ -42,7 +43,7 @@ export class MCTextureLoader {
      * @param {string} [defaultNamespace="minecraft"] - 名前空間が指定されていない場合のデフォルト
      * @returns {[string, string]} [名前空間, 相対パス] のタプル
      */
-    _splitNamespace(ref, defaultNamespace = "minecraft") {
+    private _splitNamespace(ref: string, defaultNamespace: string = "minecraft"): string[] {
         return ref.includes(":") ? ref.split(":") : [defaultNamespace, ref];
     }
 
@@ -53,7 +54,7 @@ export class MCTextureLoader {
      * @param {string} [textureId=null] - model.element.uv.textureから参照する為のID (例: "#texture")
      * @returns {Promise<MCTextures>} ロードされた MCTextures オブジェクトのPromise
      */
-    async loadTexture(textureRef, textureId = null): MCTextures {
+    public async loadTexture(textureRef: string, textureId: string = null): Promise< MCTextures > {
         const key = `${textureId}@${textureRef}` || textureRef;
         if (this.textures.has(key)) {
             return this.textures.get(key);
@@ -68,23 +69,19 @@ export class MCTextureLoader {
 
         try {
             // jarLoader.getFile を使ってPNGのUint8Arrayデータを取得
-            const pngData = await this._jarLoader.getFile(fullTexturePath); 
+            const pngData = await this._jarLoader.getFile(fullTexturePath);
 
             if (!pngData) {
                 // ファイルが見つからない、または内容が空の場合
                 throw new Error(`Texture PNG data empty or not found in JAR: ${fullTexturePath}`);
             }
-            
+
             // Uint8ArrayからBlobを作成し、createImageBitmapでImageBitmapに変換
             const blob = new Blob([pngData], { type: 'image/png' });
-            const image = await createImageBitmap(blob, {imageOrientation: "flipY"});
+            const image = await createImageBitmap(blob, { imageOrientation: "flipY" });
 
             // チャンネル分離（アニメーションテクスチャなどに対応するため）
-            // ここで _splitImageChannels が返す Promise<ImageBitmap> を await して解決する
-            const textureChannels = {
-                color: await this._splitImageChannels(image).color,
-                alpha: await this._splitImageChannels(image).alpha
-            };
+            const textureChannels = await this._splitImageChannels(image);
 
             // THREE.Texture の作成
             const tex = new THREE.Texture(textureChannels.color);
@@ -93,8 +90,8 @@ export class MCTextureLoader {
             tex.colorSpace = THREE.SRGBColorSpace;
             tex.flipY = false;
             tex.needsUpdate = true;
-            
-            const mctex: MCTextures = {map: tex};
+
+            const mctex: MCTextures = { map: tex, transparent: false };
 
             // アルファマップの適用
             if (textureChannels.alpha) {
@@ -119,7 +116,7 @@ export class MCTextureLoader {
             // ロード失敗時は警告を出して、MISSING_TEXTUREを返す
             console.warn(`[MCTextureLoader] Failed to load texture '${textureRef}', using fallback. Error:`, e);
             const fallbackTex = this.getMissingTexture();
-            const mctex: MCTextures = {map: fallbackTex};
+            const mctex: MCTextures = { map: fallbackTex, transparent: false };
             this.textures.set(key, mctex); // フォールバックもキャッシュする
             return mctex;
         }
@@ -132,21 +129,21 @@ export class MCTextureLoader {
      * @param {string} textureId - model.element.uv.textureから参照する為のID (例: "#texture")
      * @param {THREE.Texture} texture - 設定対象のTHREE.Textureオブジェクト
      */
-    async _checkAnimate(textureRef, textureId, texture) {
+    private async _checkAnimate(textureRef: string, textureId: string, texture: THREE.Texture) {
         try {
             // .mcmetaファイルパスを構築 (テクスチャパスと同様に名前空間を考慮)
             const [namespace, relPath] = this._splitNamespace(textureRef);
             const mcmetaPath = `assets/${namespace}/textures/${relPath}.png.mcmeta`;
 
             // jarLoader.getText を使ってテキストコンテンツを取得
-            const mcmetaText = await this._jarLoader.getText(mcmetaPath); 
+            const mcmetaText = await this._jarLoader.getText(mcmetaPath);
 
-			texture.userData = {
+            texture.userData = {
                 texture_id: textureId,  // (例: "#texture")
                 texture_name: textureRef, // (例: "block/stone")
                 texture_path: mcmetaPath.replace(/\.mcmeta$/, ''), // .png.mcmetaから.pngに戻す
             };
-            
+
             if (mcmetaText) {
                 const mcmeta = JSON.parse(mcmetaText);
                 const anim = mcmeta.animation || {};
@@ -160,7 +157,7 @@ export class MCTextureLoader {
                     totalFrames: anim.frames ? anim.frames.length : fallbackFrameCount, // フレーム数
                     interpolate: anim.interpolate || false, // クロスフェーディングのフラグ
                     frames: anim.frames || fallbackFrames // フレーム配列自体も保存
-                });
+                }) as TextureUserData;
                 //console.log(`[MCTextureLoader] Animated texture detected. ${textureRef}`);
             }
         } catch (e) {
@@ -177,7 +174,7 @@ export class MCTextureLoader {
      * @param {ImageBitmap} image - 入力画像
      * @returns {{color: ImageBitmap, alpha: ImageBitmap | null}} カラーチャンネルとアルファチャンネルのImageBitmap
      */
-    _splitImageChannels(image) {
+    private async _splitImageChannels(image: ImageBitmap): Promise<{ color: ImageBitmap, alpha: ImageBitmap | null }> {
         const width = image.width;
         const height = image.height;
 
@@ -200,7 +197,7 @@ export class MCTextureLoader {
             const finalAlphaValue = Math.round(boostedAlpha * 255);
 
             // アルファチャンネル用のデータを設定 (R, G, B に元のアルファ値をコピー)
-            alphaData[i    ] = finalAlphaValue; // R
+            alphaData[i] = finalAlphaValue; // R
             alphaData[i + 1] = finalAlphaValue; // G
             alphaData[i + 2] = finalAlphaValue; // B
             alphaData[i + 3] = 255;         // A (アルファマップ自身のアルファは常に255)
@@ -219,8 +216,8 @@ export class MCTextureLoader {
         // ImageDataからImageBitmapを生成し直す
         // createImageBitmap は Promise を返す
         return {
-            color: createImageBitmap(colorImage),
-            alpha: alphaImage ? createImageBitmap(alphaImage) : null
+            color: await createImageBitmap(colorImage),
+            alpha: alphaImage ? await createImageBitmap(alphaImage) : null
         };
     }
 
@@ -228,7 +225,7 @@ export class MCTextureLoader {
      * ロード失敗時や見つからない場合に表示する2x2のMISSING_TEXTUREを生成または取得します。
      * @returns {THREE.Texture} MISSING_TEXTUREのTHREE.Textureオブジェクト
      */
-    getMissingTexture() {
+    public getMissingTexture(): THREE.Texture {
         if (MCTextureLoader._cachedMissingTexture) {
             return MCTextureLoader._cachedMissingTexture;
         }
@@ -261,8 +258,8 @@ export class MCTextureLoader {
     /**
      * ロード済みの全てのテクスチャキャッシュをクリアします。
      */
-    clearCache() {
-        this.textures.forEach(tex => {tex.map.dispose(); tex.alphaMap?.dispose();}); // THREE.Textureのリソースを解放
+    public clearCache() {
+        this.textures.forEach(tex => { tex.map.dispose(); tex.alphaMap?.dispose(); }); // THREE.Textureのリソースを解放
         this.textures.clear();
         console.log("[MCTextureLoader] Texture cache cleared.");
     }

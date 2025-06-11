@@ -10,7 +10,7 @@ import { BlockStateManager } from '@/lib/BlockStateManager';
 import { BlockMeshGroup } from '@/lib/BlockMeshGroup';
 import { RenderManager } from '@/lib/RenderManager';
 import type { IBlockOption } from './lib/interfaces/blockState';
-import type { IActiveModelGroup, IPropertyOption, IPossibleProperty } from '@/lib/BlockStateManager';
+import type { IActiveModelGroup, IPropertyOptions, IPropertyOption, IPossibleProperty } from '@/lib/BlockStateManager';
 
 const $toast = useToast();
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
@@ -57,7 +57,6 @@ const activeModelGroups = computed < IActiveModelGroup[] > (() => {
         return [];
     }
     const groups = blockStateManager.getActiveModels(selectedProperties.value);
-    console.log("activeModelGroups computed result:", groups);
     return groups;
 });
 
@@ -239,6 +238,7 @@ watch(selectedNamespace, async (newNamespace) => {
 watch(selectedBlockName, async (newBlockName) => {
 
     if (newBlockName && renderManager.value) {
+        renderManager.value.resetCamera();
         await loadAndSetBlockState();
 
     } else {
@@ -353,11 +353,11 @@ const initializeSelectedProperties = async () => {
         // Step 3: 最初のプロパティを見つけて、デフォルト以外の値で試す
         if (propNames.length > 0) {
             const firstPropName: string = propNames[0];
-            const firstPropData: IPropertyOption[] = possibleProperties.value[firstPropName];
+            const firstPropData: IPropertyOptions = possibleProperties.value[firstPropName];
 
             const currentDefault: string = newSelectedProps[firstPropName];
             const alternativeOption = firstPropData.options.find(
-                (option: string) => option.value !== currentDefault
+                (option: IPropertyOption) => option.value !== currentDefault
             );
 
             if (alternativeOption) {
@@ -414,7 +414,6 @@ const applyBlockState = async () => {
 
     console.log("Selected properties:", JSON.stringify(selectedProperties.value));
     console.log("Active model groups:", JSON.stringify(currentActiveModelGroups));
-    console.log("Models to render:", JSON.stringify(groupsToRender.value));
 };
 
 const renderModel = async () => {
@@ -422,21 +421,18 @@ const renderModel = async () => {
         return;
     }
     if (isDebug) {
-        console.log("Try to render.", JSON.stringify(groupsToRender.value));
+        console.log("Attempt to render:", JSON.stringify(groupsToRender.value));
     }
-    renderManager.value.resetCamera();
 
     if (groupsToRender.value.length > 0) {
         blockMeshGroup.value.clearBlock();
 
-        const success = await blockMeshGroup.value.prepare(groupsToRender.value, selectedBlockName.value).catch(error => {
+        try {
+            await blockMeshGroup.value.prepare(groupsToRender.value, selectedBlockName.value);
+            await blockMeshGroup.value.show(groupsToRender.value);
+        }catch(error){
             $toast.open({ message: error.message, type: "warning" });
-        });
-        if (success) {
-            await blockMeshGroup.value.show(groupsToRender.value).catch(error => {
-                $toast.open({ message: error.message, type: "warning" });
-            });
-        }
+        };
     } else {
         blockMeshGroup.value.clearBlock();
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
@@ -451,16 +447,6 @@ const rotate = () => {
     renderManager.value?.rotateCamera(45);
 }
 
-// モデルグループの conditionKey が、指定されたプロパティ名を含んでいるか判定します。
-const doesGroupConditionContainProperty = (group: IActiveModelGroup, propName: string): boolean => {
-    if (group === undefined || group === null) {
-        return false;
-    }
-    if (!group?.conditionKey) {
-        return false; // 条件キーがない場合は、特定のプロパティとは関連付けないと判断
-    }
-    return group.conditionKey.includes(`${propName}=`);
-};
 
 // 各プロパティの下に表示するモデルグループをフィルタリング
 const modelGroupsByProperty = computed < Record < string, IActiveModelGroup[]>> (() => {
@@ -596,7 +582,7 @@ const saveAsImage = () => {
                                 :key="group.conditionKey || 'group-nested-' + propName + '-' + groupIndex">
                                 <div v-if="group.models.length > 1" class="model-group-select">
                                     <select :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
+                                        @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))">
                                         <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex"
                                             :key="modelIndex">
                                             {{ JSON.stringify(modelOption) }}
@@ -617,7 +603,7 @@ const saveAsImage = () => {
                         :key="group.conditionKey || 'group-other-' + groupIndex" class="model-group-box">
                         <div v-if="group.models.length > 1" class="model-group-select">
                             <select :value="selectedModelGroupIndices.get(group.conditionKey || '') || 0"
-                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt(event.target.value))">
+                                @change="event => selectedModelGroupIndices.set(group.conditionKey || '', parseInt((event.target as HTMLSelectElement).value))">
                                 <option v-for="(modelOption, modelIndex) in group.models" :value="modelIndex"
                                     :key="modelIndex">
                                     {{ JSON.stringify(modelOption) }}
@@ -693,6 +679,7 @@ const saveAsImage = () => {
     border-radius: 4px;
     font-size: 1em;
     min-width:8em;
+    margin-bottom: 0.5em;
 }
 
 /* Resource Pack List */

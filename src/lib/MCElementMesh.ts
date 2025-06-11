@@ -2,29 +2,18 @@
 
 import * as THREE from 'three';
 import { MCAnimatedBasicMaterial, MCAnimatedLambertMaterial } from './MCAnimatedMaterials';
-import type { ModelElement, ElementRotation, ElementFaces, FaceProperties } from './interfaces/blockModel';
+import type { ModelElement, ElementRotation, ElementFaces, FaceProperties, IFaceName, IAngle } from './interfaces/blockModel';
 import type { IBlockOption } from './interfaces/blockState';
-import type { TextureUserData } from './MCTextureLoader';
+import type { MCTextures, TextureUserData } from './MCTextureLoader';
+import type { MCAnimatedMaterialOptions } from './MCAnimatedMaterials';
 
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
-
-/**
- * 回転や面の名前の定義
- */
-type IAngle = 0 | 90 | 180 | 270;
-type IFaceName = keyof ElementFaces;
 
 /**
  * 内部で使用するブロック状態の回転情報
  */
 interface InternalStateRotation {
     axis: "x" | "y";
-    angle: IAngle;
-}
-
-interface FaceRotationResult {
-    globalFaceName: IFaceName;
-    preRotatedFaceName: IFaceName;
     angle: IAngle;
 }
 
@@ -54,6 +43,8 @@ const MinecraftColors: { [key: string]: number } = {
     black: 0x1D1D21
 };
 
+type Axis = 'x' | 'y' | 'z';
+
 /**
  * Minecraftのモデル要素データからThree.jsのメッシュを生成するクラス。
  * 単一の`ModelElement`を基にジオメトリとマテリアルを構築し、
@@ -64,7 +55,6 @@ export class MCElementMesh extends THREE.Object3D {
     private _animatedMaterials: Set<MCAnimatedBasicMaterial | MCAnimatedLambertMaterial> = new Set();
     // 処理対象のモデル要素データ (オリジナルMinecraft座標を保持)
     private _element: ModelElement;
-    private _origElement: ModelElement; // バックアップ用
     // マテリアルの追加オプション
     private _diffuseColors = [
         { name: "block/redstone_dust", color: 0xFC3100 },
@@ -85,7 +75,6 @@ export class MCElementMesh extends THREE.Object3D {
         { name: "block/leaf_litter", color: 0xA17448 },
         { name: "_leaves", color: 0x71A74D },
         { name: "stonecutter", color: 0xFFFFFF },
-        { name: "block/respawn_anchor_top", transparent: false },
         { name: "default", color: 0x8EB971 }
     ];
     private _additionalMaterialOption = [
@@ -99,16 +88,14 @@ export class MCElementMesh extends THREE.Object3D {
      * @param textures - ロード済みのテクスチャマップ (例: `{"#side": { map: THREE.Texture, alphaMap: null, transparent: false }}` )
      * @param blockstate - ブロックの状態データ (例: `{uvlock: true, y: 270}`)
      */
-    constructor(element: ModelElement, textures: { [key: string]: { map: THREE.Texture, alphaMap?: THREE.Texture | null, transparent?: boolean } }, blockstate: IBlockOption, blockName: string) {
+    constructor(element: ModelElement, textures: { [key: string]: MCTextures }, blockstate: IBlockOption, blockName: string) {
         super(); // THREE.Object3Dのコンストラクタを呼び出す
 
         // インスタンスがMCElementMeshであることを示すカスタムプロパティ
         (this as any).isMCElementMesh = true;
 
         // オリジナルのelementを保存 (ディープコピーして元のelementを改変しないようにする)
-        // _elementは常にMinecraftのオリジナル座標を保持する
-        this._origElement = element;
-        this._element = JSON.parse(JSON.stringify(element));
+        this._element = JSON.parse(JSON.stringify(element)) as ModelElement;
 
         // blockstateの回転指定を軸ごとの配列に変換
         const blockstateRotations = this._convertBlockstateRotation(blockstate);
@@ -122,23 +109,23 @@ export class MCElementMesh extends THREE.Object3D {
         const materialsToDispose: THREE.Material[] = [];
 
         // 要素の各面を処理
-        const faces = this._element.faces || {};
+        const faces: ElementFaces = this._element.faces || {};
         for (const faceName in faces) {
-            const faceData = faces[faceName as keyof ElementFaces]!; // 型アサーションでundefinedを除外
+            const faceData: FaceProperties = faces[faceName as IFaceName]!; // 型アサーションでundefinedを除外
 
             // 1. UV切り抜き範囲の決定 (0-16スケール, Minecraft座標系)
             // _computeDefaultUVは、_element (オリジナルMinecraft座標) を参照してUVを生成
-            const defaultUVs = this._computeDefaultUV(faceName as keyof ElementFaces);
-            if (this.isDebug && !faceData.uv && false) {
+            const defaultUVs = this._computeDefaultUV(faceName as IFaceName);
+            if (isDebug && !faceData.uv && false) {
                 console.log(`Face: ${faceName}'s uv is omitted. ComputedUV: ${JSON.stringify(defaultUVs)}`);
             }
-            const uvRect = faceData.uv ? [...faceData.uv] : defaultUVs;
+            const uvRect = faceData.uv ? faceData.uv : defaultUVs;
 
             let textureKey = faceData.texture;
             let textureEntry = textures[textureKey];
 
             if (!textureEntry || !textureEntry.map) {
-                if (!textureKey.startsWith('#')){ // #無しのパターンに対応
+                if (!textureKey.startsWith('#')) { // #無しのパターンに対応
                     textureKey = `#${textureKey}`;
                     textureEntry = textures[textureKey];
                 }
@@ -150,22 +137,22 @@ export class MCElementMesh extends THREE.Object3D {
 
             // 2. ジオメトリの作成と初期配置 (Three.jsのワールド原点(0,0,0)基準)
             // このメソッド内で、Minecraft座標からThree.js座標への変換と、ジオメトリの初期配置を行う
-            const geometry = this._createFaceGeometry(faceName as keyof ElementFaces);
+            const geometry = this._createFaceGeometry(faceName as IFaceName);
             geometriesToDispose.push(geometry);
 
             // 3. 要素のローカル回転 (element rotation) を適用
             if (this._element.rotation) {
                 // element.rotation.originはMinecraftの0-16スケール
                 // Three.jsのワールド原点(0,0,0)を基準にするために、変換された座標にオフセットする
-                const mcOrigin = new THREE.Vector3().fromArray(this._element.rotation.origin || [8, 8, 8]);
-                const elementRotationOrigin = new THREE.Vector3(mcOrigin.x - 8, mcOrigin.y - 8, mcOrigin.z - 8);
+                const mcOrigin: THREE.Vector3 = new THREE.Vector3().fromArray(this._element.rotation.origin || [8, 8, 8]);
+                const elementRotationOrigin: THREE.Vector3 = new THREE.Vector3(mcOrigin.x - 8, mcOrigin.y - 8, mcOrigin.z - 8);
 
                 const elementTransformMatrix = this._createTransformationMatrix(this._element.rotation, elementRotationOrigin);
                 geometry.applyMatrix4(elementTransformMatrix);
             }
 
             // 4. ブロック状態のワールド回転 (blockstate rotation) を適用
-            const totalTransformationMatrix = new THREE.Matrix4();
+            const totalTransformationMatrix: THREE.Matrix4 = new THREE.Matrix4();
             for (const bsRotation of blockstateRotations) {
                 // ブロックの回転中心は常にMinecraftの[8,8,8]。
                 // ジオメトリは既にThree.jsのワールド原点(0,0,0)を中心に配置されているため、
@@ -185,8 +172,8 @@ export class MCElementMesh extends THREE.Object3D {
             // uvlockがtrueの場合、ジオメトリの回転とは独立してUVをワールドに固定する必要がある
             if (isUvLocked) {
                 // ジオメトリ回転後の面の回転角度を求める
-                const currentAngle = this._getFaceTextureRotation(faceName, blockstateRotations);
-                rotatedUvs = this._rotateGrobalUVs(Uvs, -currentAngle); //逆回転
+                const currentAngle = this._getFaceTextureRotation(faceName as IFaceName, blockstateRotations);
+                rotatedUvs = this._rotateGrobalUVs(Uvs, -currentAngle as IAngle); //逆回転
 
                 if (isDebug && false) {
                     console.log(`[MCElementMesh] uvlock. face: ${faceName}, angle: ${currentAngle}`);
@@ -201,7 +188,7 @@ export class MCElementMesh extends THREE.Object3D {
                 }
 
                 // 切り抜かれた状態で回転させる
-                rotatedUvs = this._rotateUVs(Uvs, uvRotationDegree);
+                rotatedUvs = this._rotateUVs(Uvs, uvRotationDegree as IAngle);
             }
 
 
@@ -224,7 +211,7 @@ export class MCElementMesh extends THREE.Object3D {
             let material = materialCache[matCacheKey];
 
             if (!material) {
-                const materialOptions = {
+                let materialOptions:MCAnimatedMaterialOptions = {
                     map: textureEntry.map,
                     alphaMap: textureEntry.alphaMap || null,
                     side: THREE.FrontSide, // Minecraftモデルは通常片面描画
@@ -235,20 +222,20 @@ export class MCElementMesh extends THREE.Object3D {
                 const textureName: string = textureEntry.map?.userData?.texture_name || `block/${blockName}`;
 
                 if (faceData.hasOwnProperty("tintindex")) { //染色オプションに対応
-                    const match = this._diffuseColors.find(entry => 
+                    const match = this._diffuseColors.find(entry =>
                         entry.name !== "default" && textureName.includes(entry.name)
                     );
                     materialOptions.color = (match || this._diffuseColors.find(e => e.name === "default")).color;
                 }
 
                 // カスタム染色
-                if ((blockstate as IBlockCustomOption).diffuse && faceData.texture == (blockstate as IBlockCustomOption).diffuse?.texture){
+                if ((blockstate as IBlockCustomOption).diffuse && faceData.texture == (blockstate as IBlockCustomOption).diffuse?.texture) {
                     materialOptions.color = MinecraftColors[(blockstate as IBlockCustomOption).diffuse.color];
                 }
 
                 // 追加のマテリアルオプションの適用
-                const additionalMaterialOpt = this._additionalMaterialOption.find( e => textureName.includes(e.name)) || {};
-                Object.keys(additionalMaterialOpt).forEach( opt => {
+                const additionalMaterialOpt = this._additionalMaterialOption.find(e => textureName.includes(e.name)) || {};
+                Object.keys(additionalMaterialOpt).forEach(opt => {
                     if (opt != 'name') {
                         materialOptions[opt] = additionalMaterialOpt[opt];
                     }
@@ -275,7 +262,7 @@ export class MCElementMesh extends THREE.Object3D {
                 materialsToDispose.push(material); // dispose対象として追加
             }
             const mesh = new THREE.Mesh(geometry, material);
-            this.add(mesh); // MCElementMeshインスタンス自身に子メッシュを追加
+            (this as THREE.Object3D).add(mesh); // MCElementMeshインスタンス自身に子メッシュを追加
         }
 
         // 各ジオメトリは既にThree.jsのワールド原点(0,0,0)を中心に配置されているため、
@@ -283,8 +270,8 @@ export class MCElementMesh extends THREE.Object3D {
         // this.position.set(-8, -8, -8); // <-- この行は削除
 
         // リソース解放のために、生成したジオメトリとマテリアルをuserDataに記憶
-        this.userData.materials = materialsToDispose;
-        this.userData.geometries = geometriesToDispose;
+        (this as THREE.Object3D).userData.materials = materialsToDispose;
+        (this as THREE.Object3D).userData.geometries = geometriesToDispose;
     }
 
     /**
@@ -292,7 +279,7 @@ export class MCElementMesh extends THREE.Object3D {
      * @param face - 面の方向 ('up', 'down', 'north', 'south', 'west', 'east')
      * @returns 作成されたTHREE.PlaneGeometryインスタンス
      */
-    private _createFaceGeometry(face: keyof ElementFaces): THREE.PlaneGeometry {
+    private _createFaceGeometry(face: IFaceName): THREE.PlaneGeometry {
         // _element はオリジナルのMinecraft座標 (Z軸も反転していない、0-16スケール) を保持
         const from = this._element.from;
         const to = this._element.to;
@@ -311,6 +298,9 @@ export class MCElementMesh extends THREE.Object3D {
                 width = Math.abs(to[x] - from[x]);
                 height = Math.abs(to[z] - from[z]); // Z軸はThree.jsの正規化済み座標を使う
                 geometry = new THREE.PlaneGeometry(width, height); // PlaneGeometryはデフォルトでXY平面に作成
+                if (this._shouldReverseWinding('y', from, to)) {
+                    geometry.scale(1, -1, 1); //法線の向きを反転させる
+                }
 
                 // Three.jsのワールド原点(0,0,0)を中心に配置するためのオフセット
                 centerX = (from[x] + to[x]) / 2 - 8;
@@ -329,6 +319,9 @@ export class MCElementMesh extends THREE.Object3D {
                 width = Math.abs(to[x] - from[x]);
                 height = Math.abs(to[y] - from[y]);
                 geometry = new THREE.PlaneGeometry(width, height); // PlaneGeometryはデフォルトでXY平面に作成
+                if (this._shouldReverseWinding('z', from, to)) {
+                    geometry.scale(1, -1, 1); //法線の向きを反転させる
+                }
 
                 // Three.jsのワールド原点(0,0,0)を中心に配置するためのオフセット
                 centerX = (from[x] + to[x]) / 2 - 8;
@@ -351,6 +344,9 @@ export class MCElementMesh extends THREE.Object3D {
                 width = Math.abs(to[z] - from[z]); // Z軸はThree.jsの正規化済み座標を使う
                 height = Math.abs(to[y] - from[y]);
                 geometry = new THREE.PlaneGeometry(width, height); // PlaneGeometryはデフォルトでXY平面に作成
+                if (this._shouldReverseWinding('x', from, to)) {
+                    geometry.scale(1, -1, 1); //法線の向きを反転させる
+                }
 
                 // Three.jsのワールド原点(0,0,0)を中心に配置するためのオフセット
                 centerX = (face === 'east' ? to[x] : from[x]) - 8; // X座標は面の幅に直接配置
@@ -385,15 +381,37 @@ export class MCElementMesh extends THREE.Object3D {
     }
 
     /**
+     * 面の向きを決める軸 (例: 'north'面ならZ軸) に対して winding を反転する必要があるか判定する。
+     * @param targetAxis - 面の法線方向に対応する軸 ('x', 'y', 'z')
+     * @param from - [x, y, z] の from 座標
+     * @param to - [x, y, z] の to 座標
+     * @returns true: 反転すべき, false: そのままで良い
+     */
+    private _shouldReverseWinding(targetAxis: Axis, from: number[], to: number[]): boolean {
+        // 軸ごとの反転フラグ
+        const flipX = from[0] > to[0];
+        const flipY = from[1] > to[1];
+        const flipZ = from[2] > to[2];
+
+        // 対象軸以外（面を構成する2軸）で奇数個反転していれば winding を逆にする
+        const flipAxes: Axis[] = ['x', 'y', 'z'].filter(a => a !== targetAxis) as Axis[];
+        const flipCount = flipAxes.filter(a => {
+            if (a === 'x') return flipX;
+            if (a === 'y') return flipY;
+            return flipZ;
+        }).length;
+
+        return flipCount % 2 === 1;
+    }
+
+    /**
      * 指定の面の `from` と `to` からデフォルトのUV頂点座標を計算し、返します (0-16スケール)。
      * この関数は、**オリジナルのMinecraft座標**から、**MinecraftのUV座標系**でUVを生成します。
      * elementにuv[]が存在しない場合にフォールバックとして使用します。
      * @param face - 面の方向
      * @returns UV座標の配列 `[u0, v0, u1, v1]` (x1, y1, x2, y2)
      */
-    private _computeDefaultUV(
-        face: keyof ElementFaces
-    ): number[] {
+    private _computeDefaultUV( face: IFaceName ): [number, number, number, number] {
 
         const from = this._element.from;
         const to = this._element.to;
@@ -435,7 +453,7 @@ export class MCElementMesh extends THREE.Object3D {
 
         // 2. スケール変換 (rescale が true の場合)
         let scaleMatrix = new THREE.Matrix4();
-        if (rotation.rescale === true) {
+        if ((rotation as ElementRotation).rescale === true) {
             const scaleFactor = 1 / Math.cos(angleRad);
             const scaleVec = new THREE.Vector3(1, 1, 1);
             switch (rotation.axis) {
@@ -475,11 +493,9 @@ export class MCElementMesh extends THREE.Object3D {
      * この関数は、MinecraftのUV座標系 (0-16スケール) を受け取り、
      * Three.jsのUV座標系 (0-1スケール、V軸下から上、flipY=false前提) に変換します。
      * @param rect - 元のUV矩形 `[u0, v0, u1, v1]` (0-16スケール)
-     * @param rotationDegrees - 回転角度 (度数)
-     * @param face - 面の方向 (up/down面でV軸の反転ロジックを分岐するため)
      * @returns UV座標の配列 (THREE.Vector2オブジェクト) - Three.jsの頂点順 (BL, BR, TL, TR)
      */
-    private _mapUvs(rect: number[], face: keyof ElementFaces): THREE.Vector2[] {
+    private _mapUvs(rect: number[]): THREE.Vector2[] {
         const [Left, Top, Right, Bottom] = rect; // Minecraftの0-16スケールUV
 
         let BL: THREE.Vector2;
@@ -487,29 +503,10 @@ export class MCElementMesh extends THREE.Object3D {
         let TL: THREE.Vector2;
         let TR: THREE.Vector2;
 
-        // Three.jsのテクスチャのflipY=falseを前提としたUV変換。
-        // MinecraftのUVのV軸 (上から下へ増加) を、Three.jsのV軸 (下から上へ増加) に変換する。
-        // そのため、基本的に `(16 - v_mc) / 16` のような反転・正規化が必要。
-        // しかし、`up`/`down`面と `east`/`west` 面は `_computeDefaultUV` でのV軸の取り扱いが異なるため、分岐する。
-        if (face === 'up' && face === 'down') {
-            // V軸はZ軸に対応。Minecraft Z軸とThree.js Z軸の向きは逆。
-            // _computeDefaultUVでZ軸のfrom/toをそのままVにマッピングしているため、
-            // ここでV軸をさらに反転すると、二重反転になる。
-            // したがって、V軸の反転は行わず、正規化のみ。
-            BL = new THREE.Vector2(Left / 16, Top / 16);
-            BR = new THREE.Vector2(Right / 16, Top / 16);
-            TL = new THREE.Vector2(Left / 16, Bottom / 16);
-            TR = new THREE.Vector2(Right / 16, Bottom / 16);
-        }
-        else {
-            // up/down以外の面では、
-            // _computeDefaultUV でV軸が「MinecraftのY軸（下0->上16）を16-valで反転」（結果、上0->下16）されている。
-            // Three.jsのflipY=false (V軸下から上) に合わせるため、再度16-valで反転させる。
-            BL = new THREE.Vector2(Left / 16, (16 - Bottom) / 16); // Bottom は下のY座標
-            BR = new THREE.Vector2(Right / 16, (16 - Bottom) / 16);
-            TL = new THREE.Vector2(Left / 16, (16 - Top) / 16); // Top は上のY座標
-            TR = new THREE.Vector2(Right / 16, (16 - Top) / 16);
-        }
+        BL = new THREE.Vector2(Left / 16, (16 - Bottom) / 16); // Bottom は下のY座標
+        BR = new THREE.Vector2(Right / 16, (16 - Bottom) / 16);
+        TL = new THREE.Vector2(Left / 16, (16 - Top) / 16); // Top は上のY座標
+        TR = new THREE.Vector2(Right / 16, (16 - Top) / 16);
 
         return [BL, BR, TL, TR];
     }
@@ -520,7 +517,7 @@ export class MCElementMesh extends THREE.Object3D {
      * @param angle - 回転角度（0 | 90 | 180 | 270）
      * @returns 回転後の新しい THREE.Vector2 配列
      */
-    private _rotateUVs(uvs, angle) {
+    private _rotateUVs(uvs: THREE.Vector2[], angle: IAngle): THREE.Vector2[] {
         let count = Math.floor(((360 + angle) % 360) / 90);
         if (count === 0) return uvs;
 
@@ -605,10 +602,10 @@ export class MCElementMesh extends THREE.Object3D {
     private _convertBlockstateRotation(state: IBlockOption): InternalStateRotation[] {
         const rotations: InternalStateRotation[] = [];
         if (typeof state.x === 'number') {
-            rotations.push({ axis: 'x', angle: -state.x });
+            rotations.push({ axis: 'x', angle: -state.x as IAngle });
         }
         if (typeof state.y === 'number') {
-            rotations.push({ axis: 'y', angle: -state.y });
+            rotations.push({ axis: 'y', angle: -state.y as IAngle });
         }
         return rotations;
     }
@@ -623,7 +620,7 @@ export class MCElementMesh extends THREE.Object3D {
     private _getFaceTextureRotation(face: IFaceName, rotations: InternalStateRotation[]): IAngle {
 
         // 各面にとってどの方向が上かを定義
-        const faceUpVectors: Record<FaceName, THREE.Vector3> = {
+        const faceUpVectors: Record<IFaceName, THREE.Vector3> = {
             up: new THREE.Vector3(0, 0, -1),
             down: new THREE.Vector3(0, 0, 1),
             north: new THREE.Vector3(0, 1, 0),
@@ -633,7 +630,7 @@ export class MCElementMesh extends THREE.Object3D {
         };
 
         // 法面を定義
-        const normals: Record<FaceName, THREE.Vector3> = {
+        const normals: Record<IFaceName, THREE.Vector3> = {
             up: new THREE.Vector3(0, 1, 0),
             down: new THREE.Vector3(0, -1, 0),
             north: new THREE.Vector3(0, 0, -1),
@@ -665,7 +662,7 @@ export class MCElementMesh extends THREE.Object3D {
             localUp.dot(referenceUp) // 回転量（cosθ）
         );
         const angleDeg = Math.round((THREE.MathUtils.radToDeg(angleRad) + 360) % 360);
-        return angleDeg;
+        return angleDeg as IAngle;
     };
 
 
@@ -707,15 +704,15 @@ export class MCElementMesh extends THREE.Object3D {
      */
     public dispose(): void {
         // ジオメトリの解放
-        this.userData.geometries.forEach((geom: THREE.BufferGeometry) => {
+        (this as THREE.Object3D).userData.geometries.forEach((geom: THREE.BufferGeometry) => {
             if (geom && typeof geom.dispose === 'function') {
                 geom.dispose();
             }
         });
-        this.userData.geometries = [];
+        (this as THREE.Object3D).userData.geometries = [];
 
         // マテリアルの解放
-        this.userData.materials.forEach((mat: THREE.Material) => {
+        (this as THREE.Object3D).userData.materials.forEach((mat: THREE.Material) => {
             let isManagedByAnimatedMaterial = false;
             for (const animatedMat of this._animatedMaterials) {
                 if ((animatedMat as any).material === mat) {
@@ -727,7 +724,7 @@ export class MCElementMesh extends THREE.Object3D {
                 mat.dispose();
             }
         });
-        this.userData.materials = [];
+        (this as THREE.Object3D).userData.materials = [];
 
         // アニメーションマテリアル自体の解放
         this._animatedMaterials.forEach(animatedMat => {
@@ -738,11 +735,9 @@ export class MCElementMesh extends THREE.Object3D {
         this._animatedMaterials.clear();
 
         // メッシュの開放
-        this.clear();
+        (this as THREE.Object3D).clear();
 
         // 親からの参照を解除
-        this.parent = null;
-
-        console.log("[MCElementMesh] Disposed");
+        (this as THREE.Object3D).parent = null;
     }
 }

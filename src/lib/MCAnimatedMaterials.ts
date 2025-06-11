@@ -5,25 +5,28 @@ import * as THREE from 'three';
  * テクスチャのuserDataに格納されるアニメーション情報のインターフェース
  */
 export interface TextureUserData {
-    texture_id: string;
-    texture_name: string;
-    texture_path: string;
-    animationDuration: number; // 合計ティック数 (1ティック = 50ミリ秒)
-    totalFrames: number;       // 総フレーム数
-    interpolate: boolean;      // クロスフェードのフラグ
-    frames: (number | { index: number, time: number })[]; // フレーム配列
-}
+    texture_id: string,
+    texture_name: string,
+    texture_path: string,
+    animationDuration: number, // 合計ティック数 (1ティック = 50ミリ秒)
+    totalFrames: number,       // 総フレーム数
+    interpolate: boolean,      // クロスフェードのフラグ
+    frames: (number | Frame)[] // フレーム配列
+};
+
+export interface Frame { index: number, time: number };
 
 /**
  * MCAnimatedMaterialのコンストラクタオプション
  * @deprecated Three.jsのMaterialParametersを使用するため、基本的には不要
  */
-interface MCAnimatedMaterialOptions {
-    map: THREE.Texture;
-    alphaMap?: THREE.Texture | null;
-    side?: THREE.Side;
-    transparent?: boolean;
-    alphaTest?: number;
+export interface MCAnimatedMaterialOptions {
+    map: THREE.Texture,
+    alphaMap?: THREE.Texture | null,
+    side?: THREE.Side,
+    transparent?: boolean,
+    alphaTest?: number,
+    color?: THREE.Color
 }
 
 /**
@@ -57,6 +60,8 @@ export class MCAnimatedMaterialHelper {
 
     // Three.jsのonBeforeCompileによって提供されるシェーダーインスタンスを保持
     private _shader: { vertexShader: string, fragmentShader: string, uniforms: any } | undefined;
+
+    private isInitialized:boolean = false;
 
     /**
      * MCAnimatedMaterialBaseのコンストラクタ。
@@ -103,11 +108,11 @@ export class MCAnimatedMaterialHelper {
      * カスタムシェーダーコードとuniformsを追加します。
      * 主にクロスフェードのアニメーション処理をGLSLで行うために使用されます。
      * @param shader - 現在のシェーダーオブジェクト (vertexShader, fragmentShader, uniformsを含む)
-     * @param renderer - THREE.WebGLRendererインスタンス (使用しないがThree.jsのAPIに従う)
+     * @param _renderer - THREE.WebGLRendererインスタンス (使用しないがThree.jsのAPIに従う)
      */
-    public onBeforeCompile(
+    public onBeforeCompile (
         shader: { vertexShader: string, fragmentShader: string, uniforms: any },
-        renderer: THREE.WebGLRenderer // rendererは通常使用しないが、APIに合わせる
+        _renderer: THREE.WebGLRenderer
     ): void {
 
         this._shader = shader; // シェーダーインスタンスを保存し、updateメソッドからuniformsを更新できるようにする
@@ -216,7 +221,6 @@ export class MCAnimatedMaterialHelper {
         }
 
         const texture = this.map;
-        const alphaMap = this.alphaMap;
         const totalFrames = this.animationData.totalFrames;
         const frames = this.animationData.frames;
         const actualFrames = this.actualFrames;
@@ -234,7 +238,7 @@ export class MCAnimatedMaterialHelper {
         if (typeof currentFrameInfo === 'number') {
             currentRawIndex = currentFrameInfo;
         } else {
-            currentRawIndex = currentFrameInfo.index;
+            currentRawIndex = (currentFrameInfo as Frame).index;
         }
         // flipY=falseの場合、UVオフセットは `(totalFrames - 1 - frameIndex) * frameHeightUnit`
         // または `1.0 - (frameIndex + 1) * frameHeightUnit` のように反転させる必要がある
@@ -249,7 +253,7 @@ export class MCAnimatedMaterialHelper {
         if (typeof nextFrameInfo === 'number') {
             nextRawIndex = nextFrameInfo;
         } else {
-            nextRawIndex = nextFrameInfo.index;
+            nextRawIndex = (nextFrameInfo as Frame).index;
         }
         nextYOffset = (actualFrames - 1 - nextRawIndex) * frameHeightUnit;
 
@@ -310,8 +314,8 @@ export class MCAnimatedMaterialHelper {
         let timeToNextFrame = 0;
 
         // 現在のフレームが表示されるべき時間を計算
-        if (typeof frames[this.currentFrameIndex] === 'object' && 'time' in frames[this.currentFrameIndex]) {
-            timeToNextFrame = (frames[this.currentFrameIndex] as { index: number, time: number }).time * tickDurationMs;
+        if (typeof frames[this.currentFrameIndex] === 'object') {
+            timeToNextFrame = (frames[this.currentFrameIndex] as Frame).time * tickDurationMs;
         } else {
             // frames配列に時間情報がない場合は、総アニメーション時間とフレーム数から平均時間を算出
             timeToNextFrame = (this.animationData.animationDuration / this.animationData.totalFrames) * tickDurationMs;
@@ -464,10 +468,15 @@ export function injectMCAnimationFeatures(
  * MCAnimatedMaterialBaseの機能が注入されます。
  */
 export class MCAnimatedBasicMaterial extends THREE.MeshBasicMaterial {
+    public isMCAnimatedMaterial = false;
     constructor(parameters: THREE.MeshBasicMaterialParameters) {
         super(parameters);
         injectMCAnimationFeatures(this, parameters);
     }
+    public update = (_deltaTime:number) => {};
+    public setFrame = (_frameNumber: number) => {};
+    public setProgress = (_progress: number) => {};
+    public dispose = () => {};
 }
 
 /**
@@ -475,8 +484,13 @@ export class MCAnimatedBasicMaterial extends THREE.MeshBasicMaterial {
  * MCAnimatedMaterialBaseの機能が注入されます。
  */
 export class MCAnimatedLambertMaterial extends THREE.MeshLambertMaterial {
+    public isMCAnimatedMaterial = false;
     constructor(parameters: THREE.MeshLambertMaterialParameters) {
         super(parameters);
         injectMCAnimationFeatures(this, parameters);
     }
+    public update = (_deltaTime:number) => {};
+    public setFrame = (_frameNumber: number) => {};
+    public setProgress = (_progress: number) => {};
+    public dispose = () => {};
 }

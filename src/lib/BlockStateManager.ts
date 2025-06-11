@@ -1,15 +1,15 @@
 // BlockStateManager.ts
 // Minecraftのブロック状態 (blockstate.json) を管理し、
 // 特定のプロパティ値に基づいて適切なモデルを決定するクラスを提供します。
-import type { IBlockStateFile, IBlockOption, IVariants, IMultipart, ICase, ICondition } from './interfaces/blockState';
+import type { IBlockStateFile, IBlockOption, IVariants, IMultipart, ICondition } from './interfaces/blockState';
 
 /**
  * UI表示のためにモデルとその選択情報をまとめた構造
  */
 export interface IActiveModelGroup {
-    models: IBlockOption[]; // このグループに含まれるモデルの配列 (weightがある場合は複数)
-    conditionKey?: string; // Multipartの場合、このモデルグループが適用されたwhen条件のキー (例: "axis=y", "up=true,down=true")
-    isWeighted: boolean; // このグループがweightを持つモデルの集合であるか
+    models: IBlockOption[], // このグループに含まれるモデルの配列 (weightがある場合は複数)
+    conditionKey?: string, // Multipartの場合、このモデルグループが適用されたwhen条件のキー (例: "axis=y", "up=true,down=true")
+    isWeighted: boolean // このグループがweightを持つモデルの集合であるか
     // その他、UIで表示する際に役立つメタデータ
 }
 
@@ -18,13 +18,15 @@ export interface IPropertyOption {
     hasMultipleModels: boolean
 }
 
+export interface IPropertyOptions {
+    type: 'string',
+    values: Set<string>,
+    defaultValue: string | null,
+    options: IPropertyOption[]
+}
+
 export interface IPossibleProperty {
-    [propName: string]: {
-        type: 'string',
-        values: Set<string>,
-        defaultValue: string | null,
-        options: IPropertyOption[]
-    }
+    [propName: string]: IPropertyOptions
 }
 
 /**
@@ -154,7 +156,7 @@ export class BlockStateManager {
             for (const rule of (this.blockStateJson!.multipart || [])) {
                 if (rule.when) {
                     // normalizeBlockStateでwhenが必ず { AND: [...] } または { OR: [...] } になるように正規化されている
-                    const conditions = rule.when.AND || (rule.when.OR || []);
+                    const conditions = rule.when.AND as ICondition[] || (rule.when.OR as ICondition[] || []);
                     for (const condition of conditions) {
                         for (const propName in condition) {
                             addPropertyValues(propName, condition[propName]);
@@ -276,7 +278,6 @@ export class BlockStateManager {
             possibleProps[propName].defaultValue = this._determineDefaultValue(propName, sortedValues);
         }
 
-        this._cachedPossibleProperties = possibleProps;
         return possibleProps;
     }
 
@@ -330,7 +331,6 @@ export class BlockStateManager {
         // 最も一致するvariantKeyを見つけるロジックを修正
         let bestMatchingVariantKey: string | null = null;
         let maxMatchingProps = -1; // マッチしたプロパティの数
-        let hasExactMatch = false; // 完全一致が見つかったか
 
         // ソート済みのselectedPropertiesのキー=値のペア配列
         const sortedSelectedPropPairs = Object.keys(currentSelectedProps)
@@ -350,7 +350,6 @@ export class BlockStateManager {
                 if (selectedPropsCount === variantKeyPropsCount) {
                     // 完全一致
                     bestMatchingVariantKey = variantKey;
-                    hasExactMatch = true;
                     break; // 完全一致が見つかったら即座に終了
                 } else if (variantKeyPropsCount > maxMatchingProps) {
                     // 部分一致の中で、より多くのプロパティがマッチしているものを優先
@@ -365,7 +364,7 @@ export class BlockStateManager {
         let conditionKeyToUse: string | undefined;
 
         if (bestMatchingVariantKey != null) {
-            modelsToReturn = Array.isArray(variants[bestMatchingVariantKey]) ? variants[bestMatchingVariantKey] : [variants[bestMatchingVariantKey]];
+            modelsToReturn = Array.isArray(variants[bestMatchingVariantKey]) ? variants[bestMatchingVariantKey] as IBlockOption[] : [variants[bestMatchingVariantKey] as IBlockOption ];
             conditionKeyToUse = bestMatchingVariantKey; // マッチしたvariantKeyをconditionKeyとする
         } else {
             const firstVariantKey = Object.keys(variants)[0];
@@ -394,7 +393,7 @@ export class BlockStateManager {
      * @param currentSelectedProps - 現在選択されているプロパティとその値
      * @returns 適用されるモデルのリスト
      */
-    private _getMultipartModels(currentSelectedProps: { [key: string]: string }): IActiveModelGroup[] {
+    private _getMultipartModels(currentSelectedProps: { [key: string]: string | string[] }): IActiveModelGroup[] {
         const activeModelGroups: IActiveModelGroup[] = [];
         const multipartRules = this.blockStateJson!.multipart || [];
 
@@ -404,22 +403,22 @@ export class BlockStateManager {
 
             if (rule.when) {
                 if (rule.when.AND) {
-                    conditionMet = rule.when.AND.every(andCondition => {
+                    conditionMet = (rule.when.AND as ICondition[]).every(andCondition => {
                         // andCondition は { "prop": "val", "prop2": "val2|val3" } の形式
                         const match = this._doesConditionMatch(andCondition as ICondition, currentSelectedProps);
                         return match;
                     });
                     if (conditionMet) {
-                        conditionKey = rule.when.AND.map(c => this._getKey(c as ICondition)).sort().join('&');
+                        conditionKey = (rule.when.AND as ICondition[]).map(c => this._getKey(c as ICondition)).sort().join('&');
                     }
                 } else if (rule.when.OR) {
-                    conditionMet = rule.when.OR.some(orCondition => {
+                    conditionMet = (rule.when.OR as ICondition[]).some(orCondition => {
                         // orCondition は { "prop": "val", "prop2": "val2|val3" } の形式
                         const match = this._doesConditionMatch(orCondition as ICondition, currentSelectedProps);
                         return match;
                     });
                     if (conditionMet) {
-                        conditionKey = `OR-${JSON.stringify(rule.when.OR.map(c => this._getKey(c as ICondition)).sort())}`;
+                        conditionKey = `OR-${JSON.stringify((rule.when.OR as ICondition[]).map(c => this._getKey(c as ICondition)).sort())}`;
                     }
                 } else {
                     // when が AND/OR の配列ではなく単一のオブジェクトの場合
@@ -435,7 +434,7 @@ export class BlockStateManager {
             }
 
             if (conditionMet) {
-                const modelsToApply = Array.isArray(rule.apply) ? rule.apply : [rule.apply];
+                const modelsToApply = Array.isArray(rule.apply) ? rule.apply as IBlockOption[] : [rule.apply as IBlockOption];
                 const isWeighted = modelsToApply.some(model => typeof model.weight === 'number');
 
                 activeModelGroups.push({
@@ -458,10 +457,10 @@ export class BlockStateManager {
      * @param currentSelectedProps - 現在選択されているプロパティと値
      * @returns 条件が一致すれば true、そうでなければ false
      */
-    private _doesConditionMatch(condition: ICondition, currentSelectedProps: { [key: string]: string }): boolean {
+    private _doesConditionMatch(condition: ICondition, currentSelectedProps: { [key: string]: string | string[] }): boolean {
         // condition は ICondition 型なので、Object.entries を使って安全に反復処理
         for (const [propName, expectedValue] of Object.entries(condition)) {
-            const actualValue = currentSelectedProps[propName];
+            const actualValue = currentSelectedProps[propName] as string;
 
             // 選択されたプロパティに、現在の条件のプロパティ名が存在しない場合はマッチしない
             if (actualValue === undefined) {
@@ -470,13 +469,8 @@ export class BlockStateManager {
 
             let expectedValuesArray: string[];
 
-            if (Array.isArray(expectedValue)) {
-                // `expectedValue` が既に配列の場合
-                expectedValuesArray = expectedValue;
-            } else {
-                // `expectedValue` が文字列の場合、パイプで分割して配列にする
-                expectedValuesArray = String(expectedValue).split('|');
-            }
+            // `expectedValue` をパイプで分割して配列にする
+            expectedValuesArray = String(expectedValue).split('|');
 
             // 実際の値が、期待される値の配列のいずれかに含まれているかチェック
             if (!expectedValuesArray.includes(actualValue)) {
@@ -492,14 +486,13 @@ export class BlockStateManager {
      * @param condition - 条件オブジェクト
      * @returns 条件を表す文字列
      */
-    private _getKey(condition: Record<string, string>): string {
+    private _getKey(condition: ICondition): string {
         // パイプ区切りも考慮して、key=val の形式でソート
         return Object.keys(condition)
             .sort()
             .map(propName => `${propName}=${condition[propName]}`)
             .join(',');
     }
-
 
     /**
      * blockstateの構造の差異を吸収し、内部で扱いやすい形式に正規化します。
@@ -520,12 +513,12 @@ export class BlockStateManager {
             // variantsの各エントリの`IBlockOption`を必ず配列にする
             for (const key in normalizedJson.variants as IVariants) {
                 const value = normalizedJson.variants[key];
-                normalizedJson.variants[key] = Array.isArray(value) ? value : [value];
+                normalizedJson.variants[key] = Array.isArray(value) ? value as IBlockOption[] : [value as IBlockOption];
             }
         } else if (normalizedJson.multipart) {
             // multipartの各ルールの`apply`を必ず配列にし、`when`条件を正規化
-            for (const rule of normalizedJson.multipart as IMultipart) {
-                rule.apply = (Array.isArray(rule.apply) ? rule.apply : [rule.apply]) as IMultipart;
+            for (const rule of normalizedJson.multipart as IMultipart[]) {
+                rule.apply = Array.isArray(rule.apply) ? rule.apply as IBlockOption[] : [rule.apply as IBlockOption];
 
                 // `when`節の正規化: `AND`または`OR`が存在しない場合、単一の`when`オブジェクトを`AND`配列に変換
                 if (rule.when && !rule.when.AND && !rule.when.OR) {
@@ -534,18 +527,5 @@ export class BlockStateManager {
             }
         }
         return normalizedJson;
-    }
-
-    /**
-     * ブロックのプロパティマップからソートされたVariantキー文字列を生成します。
-     * @private
-     * @param props - プロパティとその値のマップ
-     * @returns ソートされたVariantキー文字列 (例: "facing=north,half=bottom")
-     */
-    private _getKey(props: { [key: string]: string }): string {
-        return Object.keys(props)
-            .sort()
-            .map(key => `${key}=${props[key]}`)
-            .join(',');
     }
 }

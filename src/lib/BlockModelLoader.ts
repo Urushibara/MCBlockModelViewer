@@ -1,17 +1,18 @@
 import { MinecraftJarLoader } from './MinecraftJarLoader';
+import type { MCModel } from './interfaces/blockModel'
 
-// BlockModelLoader.js
+// BlockModelLoader.ts
 
 export class BlockModelLoader {
-    _jarLoader; // MinecraftJarLoader のインスタンスを保持するプライベートプロパティ
+    _jarLoader:MinecraftJarLoader; // MinecraftJarLoader のインスタンスを保持するプライベートプロパティ
     // モデルデータをキャッシュするMap
     // キーはmodelRef (例: "block/stone")、値は解決済みの完全なモデルJSONデータ
-    _modelCache = new Map();
+    _modelCache = new Map<string, MCModel>();
 
     /**
      * @param {MinecraftJarLoader} jarLoader - MinecraftJarLoader のインスタンス
      */
-    constructor(jarLoader) {
+    constructor(jarLoader:MinecraftJarLoader) {
         this._jarLoader = jarLoader;
     }
 
@@ -24,7 +25,7 @@ export class BlockModelLoader {
      * @param {string} [defaultNamespace="minecraft"] - 名前空間が指定されていない場合のデフォルト
      * @returns {[string, string]} [名前空間, 相対パス] のタプル
      */
-    _splitNamespace(ref, defaultNamespace = "minecraft") {
+    private _splitNamespace(ref:string, defaultNamespace:string = "minecraft"):string[] {
         return ref.includes(":") ? ref.split(":") : [defaultNamespace, ref];
     }
 
@@ -35,14 +36,14 @@ export class BlockModelLoader {
      * @returns {Promise<object>} パースされたJSONオブジェクト
      * @throws {Error} ファイルが見つからない、またはJSONパースに失敗した場合
      */
-    async _readJSON(path) {
+    async _readJSON(path:string):Promise< MCModel > {
         try {
             // this._jarLoader を使う
             const text = await this._jarLoader.getText(path);
             if (!text) {
                 throw new Error(`File content empty or not found in JAR: ${path}`);
             }
-            return JSON.parse(text);
+            return JSON.parse(text) as MCModel;
         } catch (e) {
             console.error(`[BlockModelLoader] Failed to read or parse JSON from ${path}:`, e);
             throw e;
@@ -58,7 +59,7 @@ export class BlockModelLoader {
      * @returns {Promise<object>} 結合されたモデルデータ (elements, textures, display など)
      * @throws {Error} モデルのロード中にエラーが発生した場合
      */
-    async _loadModelRecursive(modelRef, fromNamespace = "minecraft") {
+    async _loadModelRecursive(modelRef:string, fromNamespace:string = "minecraft"):Promise< MCModel > {
         const [namespace, relPath] = this._splitNamespace(modelRef, fromNamespace);
         const fullPath = `assets/${namespace}/models/${relPath}.json`;
 
@@ -68,12 +69,12 @@ export class BlockModelLoader {
             return this._modelCache.get(fullPath);
         }
 
-        const modelData = await this._readJSON(fullPath);
-        let finalModelData = { ...modelData }; // まずは現在のモデルデータをコピー
+        const modelData:MCModel = await this._readJSON(fullPath);
+        let finalModelData:MCModel = { ...modelData }; // まずは現在のモデルデータをコピー
 
         // 親モデルがあれば、親モデルをロードし、現在のモデルデータを上書きマージする
         if (modelData.parent) {
-            const parentModelData = await this._loadModelRecursive(modelData.parent, namespace);
+            const parentModelData:MCModel = await this._loadModelRecursive(modelData.parent, namespace);
 
             // 親のデータを子のデータで上書き
             // elements, display, ambientocclusion, gui_light などのプロパティは親から継承
@@ -85,9 +86,6 @@ export class BlockModelLoader {
                 ...(modelData.textures || {})
             };
         }
-
-        // 最終的なモデルデータにロード元のパス情報も追加
-        finalModelData.modelPath = fullPath;
 
         // 再帰呼び出しのたびに解決済みのモデルデータをキャッシュ
         this._modelCache.set(fullPath, finalModelData);
@@ -102,14 +100,14 @@ export class BlockModelLoader {
      * @param {number} [depth=5] - 再帰深度の制限
      * @returns {string} 解決されたテクスチャパス (例: "block/stone")
      */
-    _resolveTextureRef(ref, textureMap, depth = 5) {
+    private _resolveTextureRef(ref:string, textureMap: MCModel['textures'], depth:number = 5):string {
         // "#"で始まらない、または再帰深度が0になったら、そのまま返す
         if (!ref || !ref.startsWith("#") || depth <= 0) {
             return ref;
         }
 
-        const key = ref.substring(1); // "#"を除いたキー
-        const next = textureMap[key]; // マップから次の参照を取得
+        const key:string = ref.substring(1); // "#"を除いたキー
+        const next:string = textureMap[key]; // マップから次の参照を取得
 
         // 次の参照が存在しない場合、解決できないので元の参照を返す
         if (!next) {
@@ -127,7 +125,7 @@ export class BlockModelLoader {
      * @param {string} modelRef - ロードするモデルの参照パス (例: "minecraft:block/stone")
      * @returns {Promise<object>} 解決済みのモデルデータ
      */
-    async loadModel(modelRef) {
+    public async loadModel(modelRef:string):Promise<MCModel> {
         try {
             // 最上位のキャッシュをチェック
             if (this._modelCache.has(modelRef)) {
@@ -135,12 +133,12 @@ export class BlockModelLoader {
             }
 
             // 再帰的にモデルをロードし、継承チェーンを解決
-            const resolvedModelData = await this._loadModelRecursive(modelRef);
+            const resolvedModelData:MCModel = await this._loadModelRecursive(modelRef);
 
             // 最終的なモデルデータに含まれるテクスチャ参照を解決
             // resolvedModelData.textures は既にマージ済みなので、それを基に解決
             if (resolvedModelData.textures) {
-                const resolvedTextures = {};
+                const resolvedTextures:MCModel['textures'] = {};
                 for (const textureName in resolvedModelData.textures) {
                     const originalRef = resolvedModelData.textures[textureName];
                     // ここでテクスチャ参照を解決する
@@ -165,7 +163,7 @@ export class BlockModelLoader {
      * ロード済みの全てのモデルキャッシュをクリアします。
      * 新しいjarファイルをロードするなど、モデル定義が変更される可能性がある場合に呼び出します。
      */
-    clearCache() {
+    public clearCache() {
         this._modelCache.clear();
         console.log("[BlockModelLoader] Model cache cleared.");
     }

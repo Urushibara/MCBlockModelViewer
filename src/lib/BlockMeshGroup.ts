@@ -48,9 +48,9 @@ export class BlockMeshGroup extends THREE.Group {
      * 複数のモデル定義に基づいて、対応するモデルデータとテクスチャを事前にロード・準備します。
      * これは、BlockStateManager.getActiveModels から返されるリストを受け取ります。
      * @param {Array<object>} modelDefs - 各モデル定義
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    async prepare(modelDefs:IBlockOption[], blockName:string):boolean {
+    async prepare(modelDefs:IBlockOption[], blockName:string):Promise< boolean > {
         if (!this._isFallbackTexLoaded) {
             FALLBACK_MATERIAL_CUBE.map = await this._textureLoader.getMissingTexture();
             FALLBACK_MATERIAL_CUBE.needsUpdate = true; // マップの更新を通知
@@ -66,7 +66,6 @@ export class BlockMeshGroup extends THREE.Group {
         } catch(error) {
             this._addFallbackCube();
             throw error;
-            return false;
         }
     }
 
@@ -77,7 +76,7 @@ export class BlockMeshGroup extends THREE.Group {
      * @param {string} modelRef - モデルの参照文字列 (例: "minecraft:block/stone")
      * @returns {Promise<void>}
      */
-    async _prepareModelAndTextures(modelRef:string):void {
+    async _prepareModelAndTextures(modelRef:string):Promise< void > {
         if (this._modelCache.has(modelRef) && this._modelCache.get(modelRef) !== null) {
             return; // 既に成功裏に準備済みなら何もしない
         }
@@ -115,9 +114,9 @@ export class BlockMeshGroup extends THREE.Group {
      * 古いメッシュは削除されます。
      * @param {Array<object>} modelDefs - BlockStateManager.getActiveModels から返されるモデル定義のリスト
      */
-    async show(modelDefs:IBlockOption[]):void {
+    async show(modelDefs:IBlockOption[]):Promise< void > {
         // 現在表示されている全ての子メッシュを削除し、Three.jsのリソースを解放
-        this.children.forEach(child => {
+        (this as THREE.Group).children.forEach(child => {
             if (child instanceof MCElementMesh) {
                 child.dispose(); // MCElementMesh の dispose を呼び出す
             } else if (child.isMesh) { // フォールバックキューブなど
@@ -125,10 +124,10 @@ export class BlockMeshGroup extends THREE.Group {
                 if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
             }
         });
-        this.clear(); // THREE.Group の全ての子オブジェクトを削除
+        (this as THREE.Group).clear(); // THREE.Group の全ての子オブジェクトを削除
 
         if (!modelDefs || modelDefs.length === 0) {
-            this._addFallbackCube(modelDef);
+            this._addFallbackCube();
             console.log("[BlockMeshGroup] No models to show.");
             throw new Error("No models to show.")
         }
@@ -138,7 +137,7 @@ export class BlockMeshGroup extends THREE.Group {
             const modelData = this._modelCache.get(modelRef);
 
             if (!modelData) {
-                this._addFallbackCube(modelDef);
+                this._addFallbackCube();
                 const message = `Model data not prepared for '${modelRef}'. Showing fallback cube.`;
                 console.warn("[BlockMeshGroup] " + message);
                 throw new Error(message);
@@ -176,7 +175,7 @@ export class BlockMeshGroup extends THREE.Group {
                         blockstate,           // blockstate データ (x, y, uvlockなどを含む)
                         this._blockName
                     );
-                    this.add(elementMesh);
+                    (this as THREE.Group).add(elementMesh);
 
                     if (isDebug && false) {
                         console.log("[BlockMeshGroup] MCElementMesh added:", elementMesh);
@@ -196,22 +195,22 @@ export class BlockMeshGroup extends THREE.Group {
      * ロード失敗時やモデルデータがない場合に表示するフォールバック用のキューブを追加します。
      * @private
      */
-    _addFallbackCube() {
+    private _addFallbackCube():void {
         const fallbackGeometry = new THREE.BoxGeometry(16, 16, 16);
         const mesh = new THREE.Mesh(fallbackGeometry, FALLBACK_MATERIAL_CUBE);
-        this.add(mesh);
+        (this as THREE.Group).add(mesh);
     }
 
-    public updateAnimation(deltaTimeMs: number) {
-        this.children.forEach(object => {
+    public updateAnimation(deltaTimeMs: number):void {
+        (this as THREE.Group).children.forEach(object => {
             if (object.isMCElementMesh) {
                 object.updateAnimation(deltaTimeMs);
             }
         });
     }
 
-    public setProgress(progress: number) {
-        this.children.forEach(object => {
+    public setProgress(progress: number):void {
+        (this as THREE.Group).children.forEach(object => {
             if (object.isMCElementMesh) {
                 object.setProgress(progress);
             }
@@ -219,7 +218,7 @@ export class BlockMeshGroup extends THREE.Group {
     }
 
     public reset():void {
-        this.children.forEach(object => {
+        (this as THREE.Group).children.forEach(object => {
             if (object.isMCElementMesh) {
                 object.resetMaterials();
             }
@@ -233,7 +232,7 @@ export class BlockMeshGroup extends THREE.Group {
     }
 
     public clearBlock():void {
-        this.children.forEach((child) => {
+        (this as THREE.Group).children.forEach((child) => {
             if (child instanceof MCElementMesh) {
                 child.dispose();
             } else if (child.isMesh) {
@@ -244,7 +243,7 @@ export class BlockMeshGroup extends THREE.Group {
                 child.parent.remove(child);
             }
         });
-        this.clear();
+        (this as THREE.Group).clear();
         this._modelCache.clear();
     }
 
@@ -253,7 +252,7 @@ export class BlockMeshGroup extends THREE.Group {
      * テクスチャの解放は MCTextureLoader が行います。
      */
     dispose() {
-        this.children.forEach(child => {
+        (this as THREE.Group).children.forEach(child => {
             if (child instanceof MCElementMesh) {
                 child.dispose();
             } else if (child.isMesh) {
@@ -261,7 +260,7 @@ export class BlockMeshGroup extends THREE.Group {
                 if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
             }
         });
-        this.clear();
+        (this as THREE.Group).clear();
 
         this._modelCache.clear();
         // this._textureMapCache.clear(); // ここは不要。MCTextureLoader の責任。
