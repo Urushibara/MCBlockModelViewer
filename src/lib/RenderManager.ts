@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-import { BlockMeshGroup } from './BlockMeshGroup'; // 必要であればインポート
+import { BlockMeshGroup } from './BlockMeshGroup';
 import type { MCAnimatedBasicMaterial } from './MCAnimatedMaterials';
 
 export class RenderManager {
@@ -18,7 +18,7 @@ export class RenderManager {
     public clock:THREE.Clock;
     public objects: any[];
     private _isAnimating: boolean;
-    private _lights: any[];
+    private _lights: any[] = [];
     private _animationFrameId: number;
 
     constructor(canvas: HTMLCanvasElement) {
@@ -48,7 +48,7 @@ export class RenderManager {
         this.clock = new THREE.Clock();
         this.objects = []; // シーンに追加されたオブジェクトを保持するリスト
 
-        this._animationFrameId = null;
+        this._animationFrameId = -1;
         this._isAnimating = false;
 
         this.animate = this.animate.bind(this);

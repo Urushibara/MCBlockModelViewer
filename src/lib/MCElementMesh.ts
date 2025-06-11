@@ -225,12 +225,20 @@ export class MCElementMesh extends THREE.Object3D {
                     const match = this._diffuseColors.find(entry =>
                         entry.name !== "default" && textureName.includes(entry.name)
                     );
-                    materialOptions.color = (match || this._diffuseColors.find(e => e.name === "default")).color;
+                    const diffuse = (match || this._diffuseColors.find(e => e.name === "default"));
+                    if (diffuse) {
+                        materialOptions.color = diffuse.color;
+                    }
                 }
 
                 // カスタム染色
-                if ((blockstate as IBlockCustomOption).diffuse && faceData.texture == (blockstate as IBlockCustomOption).diffuse?.texture) {
-                    materialOptions.color = MinecraftColors[(blockstate as IBlockCustomOption).diffuse.color];
+                const custom = blockstate as IBlockCustomOption;
+                const diffuse = custom.diffuse;
+                if (diffuse && faceData.texture == diffuse.texture) {
+                    const color = diffuse.color;
+                    if (color) {
+                        materialOptions.color = MinecraftColors[color];
+                    }
                 }
 
                 // 追加のマテリアルオプションの適用

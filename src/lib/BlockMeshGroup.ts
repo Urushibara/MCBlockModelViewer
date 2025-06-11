@@ -5,6 +5,7 @@ import { BlockModelLoader } from './BlockModelLoader';
 import { MCTextureLoader } from './MCTextureLoader';
 import { MCElementMesh } from './MCElementMesh';
 import type { IBlockOption } from './interfaces/blockState';
+import type { MCTextures } from './MCTextureLoader'
 
 import { toRaw } from 'vue';
 
@@ -91,7 +92,7 @@ export class BlockMeshGroup extends THREE.Group {
 
             // 2. 関連テクスチャのロード (MCTextureLoaderがキャッシュを管理)
             if (modelData.textures) {
-                const textureLoadPromises = [];
+                const textureLoadPromises:Promise<MCTextures>[] = [];
                 for (const textureName in modelData.textures) {
                     const textureRef = modelData.textures[textureName];
                     // MCTextureLoader にロードを依頼。MCTextureLoader自身がキャッシュしている。
@@ -165,7 +166,7 @@ export class BlockMeshGroup extends THREE.Group {
                 }
 
                 const blockstate = Object.assign({}, modelDef);
-                if (blockstate.model) delete blockstate.model;
+                if (blockstate.model) blockstate.model = "";
 
                 // モデル内の各要素 (element) を MCElementMesh として作成・追加
                 modelData.elements.forEach(element => {

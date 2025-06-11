@@ -132,7 +132,7 @@ export class MCAnimatedMaterialHelper {
         shader.uniforms.u_currentFrameYOffset = { value: 0.0 }; // 現在フレームのUVオフセット
         shader.uniforms.u_nextFrameYOffset = { value: 0.0 };    // 次のフレームのUVオフセット
         shader.uniforms.u_crossfadeBlend = { value: 0.0 };      // ブレンド率
-        shader.uniforms.u_isInterpolate = { value: this.animationData.interpolate };
+        shader.uniforms.u_isInterpolate = { value: this.animationData?.interpolate || false };
 
         // フラグメントシェーダーの修正: uniformの宣言とテクスチャサンプリングロジックの変更
         shader.fragmentShader = shader.fragmentShader.replace(
@@ -398,11 +398,11 @@ export class MCAnimatedMaterialHelper {
             this._shader.uniforms.u_currentFrameYOffset.value = 0.0;
             this._shader.uniforms.u_nextFrameYOffset.value = 0.0;
             this._shader.uniforms.u_crossfadeBlend.value = 0.0;
-            this._shader.uniforms.u_isInterpolate.value = this.animationData.interpolate;
+            this._shader.uniforms.u_isInterpolate.value = this.animationData?.interpolate || false;
         }
 
         // テクスチャのoffsetも初期化（クロスフェードしない場合）
-        if (this.map && !this.animationData.interpolate) {
+        if (this.map && !this.animationData?.interpolate) {
             this.map.offset.y = 0.0;
         }
     }

@@ -288,7 +288,7 @@ export class BlockStateManager {
      * @param selectedProperties - UIで選択されたプロパティとその値のマップ (例: `{ "facing": "north", "half": "bottom" }`)
      * @returns 適用されるモデルのリスト。各オブジェクトは `IBlockOption` 形式。
      */
-    public getActiveModels(selectedProperties: { [key: string]: string } = {}): IActiveModelGroup[] {
+    public getActiveModels(selectedProperties: { [key: string]: string | null } = {}): IActiveModelGroup[] {
         if (!this.blockStateJson) {
             //console.warn("[BlockStateManager] No block state JSON loaded. Call setBlockState() first.");
             return [];
@@ -299,7 +299,7 @@ export class BlockStateManager {
 
         // 選択されたプロパティを補完またはデフォルト値で埋める
         for (const propName in possibleProps) {
-            if (selectedProperties[propName] !== undefined && possibleProps[propName].values.has(selectedProperties[propName])) {
+            if (selectedProperties[propName] != null && possibleProps[propName].values.has(selectedProperties[propName])) {
                 currentSelectedProps[propName] = selectedProperties[propName];
             } else {
                 currentSelectedProps[propName] = possibleProps[propName].defaultValue!; // `_determineDefaultValue` が null を返すことはないためアサーション

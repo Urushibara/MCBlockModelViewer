@@ -54,13 +54,12 @@ export class MCTextureLoader {
      * @param {string} [textureId=null] - model.element.uv.textureから参照する為のID (例: "#texture")
      * @returns {Promise<MCTextures>} ロードされた MCTextures オブジェクトのPromise
      */
-    public async loadTexture(textureRef: string, textureId: string = null): Promise< MCTextures > {
+    public async loadTexture(textureRef: string, textureId: string | null): Promise< MCTextures > {
         const key = `${textureId}@${textureRef}` || textureRef;
         if (this.textures.has(key)) {
-            return this.textures.get(key);
+            const texture = this.textures.get(key);
+            if (texture) return texture;
         }
-
-        //console.log(`textureRef: ${textureRef}, textureId: ${textureId}`);
 
         // テクスチャ参照から名前空間と相対パスを分離
         const [namespace, relPath] = this._splitNamespace(textureRef);
@@ -129,7 +128,7 @@ export class MCTextureLoader {
      * @param {string} textureId - model.element.uv.textureから参照する為のID (例: "#texture")
      * @param {THREE.Texture} texture - 設定対象のTHREE.Textureオブジェクト
      */
-    private async _checkAnimate(textureRef: string, textureId: string, texture: THREE.Texture) {
+    private async _checkAnimate(textureRef: string, textureId: string | null, texture: THREE.Texture) {
         try {
             // .mcmetaファイルパスを構築 (テクスチャパスと同様に名前空間を考慮)
             const [namespace, relPath] = this._splitNamespace(textureRef);
@@ -160,10 +159,14 @@ export class MCTextureLoader {
                 }) as TextureUserData;
                 //console.log(`[MCTextureLoader] Animated texture detected. ${textureRef}`);
             }
-        } catch (e) {
-            // .mcmetaファイルがない、またはパースエラーは警告に留める
-            // すべてのテクスチャに.mcmetaがあるわけではないため、エラーとして扱わない
-            console.warn(`[MCTextureLoader] Could not load or parse .mcmeta for ${textureRef}:`, e.message);
+        } catch (error) {
+            if (error instanceof Error){
+                // .mcmetaファイルがない、またはパースエラーは警告に留める
+                // すべてのテクスチャに.mcmetaがあるわけではないため、エラーとして扱わない
+                console.warn(`[MCTextureLoader] Could not load or parse .mcmeta for ${textureRef}:`, error.message);
+            } else {
+                console.warn(`[MCTextureLoader] Unknown error occurred on load or parse .mcmeta for ${textureRef}.`);
+            }
         }
     }
 
@@ -182,6 +185,9 @@ export class MCTextureLoader {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (!ctx) throw "[MCTextureLoader] Failed to get context from image.";
+
         ctx.drawImage(image, 0, 0);
 
         const imageData = ctx.getImageData(0, 0, width, height);
@@ -241,6 +247,7 @@ export class MCTextureLoader {
         canvas.width = 2; // 2x2ピクセル
         canvas.height = 2;
         const ctx = canvas.getContext("2d");
+        if (!ctx) throw "[MCTextureLoader] Failed to get context from image.";
         const imgdata = new ImageData(pixels, 2, 2);
         ctx.putImageData(imgdata, 0, 0);
 

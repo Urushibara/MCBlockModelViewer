@@ -172,7 +172,7 @@ const updateListsAndUI = () => {
         selectedBlockName.value = null;
     }
 
-    lastLoaddedBlock = selectedBlockName.value;
+    lastLoaddedBlock = selectedBlockName.value ?? "";
 
     if (!selectedBlockName.value) {
         $toast.open({ message: 'No blockstate file was found in the loaded files for the current namespace.', type: 'info' });
@@ -355,7 +355,7 @@ const initializeSelectedProperties = async () => {
             const firstPropName: string = propNames[0];
             const firstPropData: IPropertyOptions = possibleProperties.value[firstPropName];
 
-            const currentDefault: string = newSelectedProps[firstPropName];
+            const currentDefault: string = newSelectedProps[firstPropName] ?? "";
             const alternativeOption = firstPropData.options.find(
                 (option: IPropertyOption) => option.value !== currentDefault
             );
@@ -428,10 +428,14 @@ const renderModel = async () => {
         blockMeshGroup.value.clearBlock();
 
         try {
-            await blockMeshGroup.value.prepare(groupsToRender.value, selectedBlockName.value);
+            await blockMeshGroup.value.prepare(groupsToRender.value, selectedBlockName.value ?? "");
             await blockMeshGroup.value.show(groupsToRender.value);
         }catch(error){
-            $toast.open({ message: error.message, type: "warning" });
+            if (error instanceof Error) {
+                $toast.open({ message: error.message, type: "warning" });
+            } else {
+                $toast.open({ message: "Unknown error!!", type: "warning" });
+            }
         };
     } else {
         blockMeshGroup.value.clearBlock();
@@ -440,10 +444,12 @@ const renderModel = async () => {
 }
 
 const resetCamera = () => {
+    if (!renderManager.value) return;
     renderManager.value.resetCamera();
 }
 
 const rotate = () => {
+    if (!renderManager.value) return;
     renderManager.value?.rotateCamera(45);
 }
 

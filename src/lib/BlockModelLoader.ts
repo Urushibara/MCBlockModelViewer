@@ -66,7 +66,7 @@ export class BlockModelLoader {
         // 再帰呼び出し中の循環参照や重複ロードを防ぐための簡易キャッシュ
         // グローバルな _modelCache とは別に、今回のロードチェーンでのみ有効
         if (this._modelCache.has(fullPath)) {
-            return this._modelCache.get(fullPath);
+            return this._modelCache.get(fullPath)!;
         }
 
         const modelData:MCModel = await this._readJSON(fullPath);
@@ -102,7 +102,7 @@ export class BlockModelLoader {
      */
     private _resolveTextureRef(ref:string, textureMap: MCModel['textures'], depth:number = 5):string {
         // "#"で始まらない、または再帰深度が0になったら、そのまま返す
-        if (!ref || !ref.startsWith("#") || depth <= 0) {
+        if (!ref || !ref.startsWith("#") || depth <= 0 || !textureMap) {
             return ref;
         }
 
@@ -129,7 +129,7 @@ export class BlockModelLoader {
         try {
             // 最上位のキャッシュをチェック
             if (this._modelCache.has(modelRef)) {
-                return this._modelCache.get(modelRef);
+                return this._modelCache.get(modelRef)!;
             }
 
             // 再帰的にモデルをロードし、継承チェーンを解決
@@ -153,9 +153,14 @@ export class BlockModelLoader {
             return resolvedModelData;
 
         } catch (error) {
-            // モデルが見つからない、またはパースエラーの場合に null を返す
-            console.warn(`[BlockModelLoader] Could not load model '${modelRef}'. Reason: ${error.message}`);
-            throw error;
+            if (error instanceof Error){
+                // モデルが見つからない、またはパースエラーの場合に null を返す
+                console.warn(`[BlockModelLoader] Could not load model '${modelRef}'. Reason: ${error.message}`);
+                throw error;
+            } else {
+                console.warn(`[BlockModelLoader] Unknown error occurred on loading the model '${modelRef}'.`);
+                throw 'Unknown error occurred!';
+            }
         }
     }
 
