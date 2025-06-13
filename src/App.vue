@@ -3,14 +3,15 @@ import { ref, onMounted, watch, computed, nextTick } from 'vue';
 import { useToast } from 'vue-toast-notification';
 import 'vue-toast-notification/dist/theme-sugar.css';
 
-import { MinecraftJarLoader } from '@/lib/MinecraftJarLoader';
-import { BlockModelLoader } from '@/lib/BlockModelLoader';
-import { MCTextureLoader } from '@/lib/MCTextureLoader';
-import { BlockStateManager } from '@/lib/BlockStateManager';
-import { BlockMeshGroup } from '@/lib/BlockMeshGroup';
-import { RenderManager } from '@/lib/RenderManager';
+import { MinecraftJarLoader } from './lib/MinecraftJarLoader';
+import { BlockModelLoader } from './lib/BlockModelLoader';
+import { MCTextureLoader } from './lib/MCTextureLoader';
+import { BlockStateManager } from './lib/BlockStateManager';
+import { BlockMeshGroup } from './lib/BlockMeshGroup';
+import { RenderManager } from './lib/RenderManager';
+import { APNGExporter } from './lib/APNGExporter';
 import type { IBlockOption } from './lib/interfaces/blockState';
-import type { IActiveModelGroup, IPropertyOptions, IPropertyOption, IPossibleProperty } from '@/lib/BlockStateManager';
+import type { IActiveModelGroup, IPropertyOptions, IPropertyOption, IPossibleProperty } from './lib/BlockStateManager';
 
 const $toast = useToast();
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
@@ -22,7 +23,7 @@ const jarLoader = new MinecraftJarLoader();
 const blockModelLoader = new BlockModelLoader(jarLoader); // jarLoaderを注入
 const textureLoader = new MCTextureLoader(jarLoader); // jarLoaderを注入
 const blockStateManager = new BlockStateManager();
-const blockMeshGroup = ref < BlockMeshGroup | null > (null);
+let blockMeshGroup: BlockMeshGroup | null = null;
 const renderManager = ref < RenderManager | null > (null);
 
 // UI連動用 リアクティブな状態
@@ -30,6 +31,8 @@ const selectedBlockName = ref < string | null > (null);
 const availableBlocks = ref < string[] > ([]);
 const availableNamespaces = ref < string[] > ([]);
 const selectedNamespace = ref < string > ('minecraft');
+const buttonDisabled = ref(false); // APNG保存用
+const progress = ref(0); // APNG保存用
 
 // BlockStateManager が提供するUI生成用データ
 const possibleProperties = ref < IPossibleProperty > ({});
@@ -161,7 +164,7 @@ const updateListsAndUI = () => {
     availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
 
     // デフォルトブロックの選択（初回またはnamespace変更時）
-    const debug_target = isDebug ? "grass_block" : "grass_block";
+    const debug_target = isDebug ? "prismarine" : "grass_block";
     if (!lastLoaddedBlock && availableBlocks.value.includes(debug_target)) {
         selectedBlockName.value = debug_target;
     } else if (lastLoaddedBlock && availableBlocks.value.includes(lastLoaddedBlock)) {
@@ -178,9 +181,9 @@ const updateListsAndUI = () => {
         $toast.open({ message: 'No blockstate file was found in the loaded files for the current namespace.', type: 'info' });
     }
 
-    if (blockMeshGroup.value) {
-        blockMeshGroup.value.clearBlock();
-        blockMeshGroup.value.clearTextureCache();
+    if (blockMeshGroup) {
+        blockMeshGroup.clearBlock();
+        blockMeshGroup.clearTextureCache();
     }
 };
 
@@ -242,8 +245,8 @@ watch(selectedBlockName, async (newBlockName) => {
         await loadAndSetBlockState();
 
     } else {
-        if (blockMeshGroup.value && renderManager.value) {
-            blockMeshGroup.value.clearBlock();
+        if (blockMeshGroup && renderManager.value) {
+            blockMeshGroup.clearBlock();
         }
     }
 });
@@ -296,8 +299,8 @@ const loadAndSetBlockState = async () => {
         return;
     }
 
-    if (blockMeshGroup.value) {
-        blockMeshGroup.value.clearBlock();
+    if (blockMeshGroup) {
+        blockMeshGroup.clearBlock();
     }
 
     const blockstatePath = `assets/${selectedNamespace.value}/blockstates/${selectedBlockName.value}.json`;
@@ -313,13 +316,13 @@ const loadAndSetBlockState = async () => {
 
     blockStateManager.setBlockState(selectedBlockName.value, blockstateJson);
 
-    if (!blockMeshGroup.value) {
-        blockMeshGroup.value = new BlockMeshGroup({
+    if (!blockMeshGroup) {
+        blockMeshGroup = new BlockMeshGroup({
             blockName: selectedBlockName.value,
             modelLoader: blockModelLoader,
             textureLoader: textureLoader
         });
-        renderManager.value.addObject(blockMeshGroup.value);
+        renderManager.value.addObject(blockMeshGroup);
     }
 
     // 可能なプロパティを取得し、UIを更新
@@ -391,7 +394,7 @@ const initializeSelectedProperties = async () => {
 
 // 現在選択されているプロパティに基づいてモデルを更新する
 const applyBlockState = async () => {
-    if (!blockStateManager || !blockMeshGroup.value) {
+    if (!blockStateManager || !blockMeshGroup) {
         return;
     }
     
@@ -419,7 +422,7 @@ const applyBlockState = async () => {
 };
 
 const renderModel = async () => {
-    if (!blockStateManager || !blockMeshGroup.value) {
+    if (!blockStateManager || !blockMeshGroup) {
         return;
     }
     if (isDebug && false) {
@@ -427,11 +430,11 @@ const renderModel = async () => {
     }
 
     if (groupsToRender.value.length > 0) {
-        blockMeshGroup.value.clearBlock();
+        blockMeshGroup.clearBlock();
 
         try {
-            await blockMeshGroup.value.prepare(groupsToRender.value, selectedBlockName.value ?? "");
-            await blockMeshGroup.value.show(groupsToRender.value);
+            await blockMeshGroup.prepare(groupsToRender.value, selectedBlockName.value ?? "");
+            await blockMeshGroup.show(groupsToRender.value);
         }catch(error){
             if (error instanceof Error) {
                 $toast.open({ message: error.message, type: "warning" });
@@ -440,7 +443,7 @@ const renderModel = async () => {
             }
         };
     } else {
-        blockMeshGroup.value.clearBlock();
+        blockMeshGroup.clearBlock();
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
 }
@@ -514,14 +517,43 @@ const saveAsImage = () => {
         $toast.open({ message: "Canvas is not ready.", type: "error" });
         return;
     }
-
-    const dataURL = canvas.toDataURL('image/png');
+    if (!blockMeshGroup) {
+        $toast.open({ message: "It's not rendered yet.", type: "error" });
+        return;
+    }
+    buttonDisabled.value = true;
+    progress.value = 0;
     const link = document.createElement('a');
-    link.href = dataURL;
-    link.download = `${selectedBlockName.value || 'canvas'}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const apngexp = new APNGExporter();
+    const isAnimate = apngexp.prepare(blockMeshGroup);
+    if (isAnimate) {
+        renderManager.value?.stopAnimation();
+        apngexp.saveAsAPNG({
+            canvas: canvas,
+            onProgress: (tick) => {
+                progress.value = tick * 100;
+            },
+            onDone: (dataURL)=>{
+                progress.value = 100;
+                link.href = dataURL;
+                link.download = `${selectedBlockName.value || 'canvas'}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(()=>{URL.revokeObjectURL(dataURL);}, 1000); // 解放
+                renderManager.value?.startAnimation();
+                buttonDisabled.value = false;
+            }
+        });
+    } else {
+        const dataURL = canvas.toDataURL('image/png');
+        link.href = dataURL;
+        link.download = `${selectedBlockName.value || 'canvas'}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        buttonDisabled.value = false;
+    }
 };
 </script>
 
@@ -635,7 +667,10 @@ const saveAsImage = () => {
                 <label for="size2">600x600px</label>
                 <button @click="rotate">Rotate 45°</button>
                 <button @click="resetCamera">Reset Cam</button>
-                <button @click="saveAsImage" class="save-btn">Save as PNG</button>
+                <button @click="saveAsImage" class="save-btn" :disabled="buttonDisabled">Save as PNG</button>
+                <div class="progress-container" v-if="buttonDisabled">
+                    <div class="progress-bar" :style="{ width: progress + '%' }"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -857,6 +892,11 @@ const saveAsImage = () => {
     background-color: #28a745;
 }
 
+.size-ui-box .save-btn:disabled {
+    background-color: #7b7b7b;
+    color: #3b3b3b;
+}
+
 .size-ui-box button:hover {
     background-color: #218838;
 }
@@ -870,5 +910,21 @@ hr {
 h2, h4 {
     text-align: center;
     margin-bottom: 15px;
+}
+
+.progress-container {
+  width: 100%;
+  height: 20px;
+  background-color: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #4caf50;
+  border-radius: 10px;
+  transition: width 0.3s ease-out;
 }
 </style>

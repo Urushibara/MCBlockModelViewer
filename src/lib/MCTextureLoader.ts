@@ -144,18 +144,36 @@ export class MCTextureLoader {
             };
 
             if (mcmetaText) {
+                type IAnimation = {
+                    frametime?: number,
+                    frames?: number[] | { index: number, time: number }[],
+                    interpolate?: boolean
+                }
+
                 const mcmeta = JSON.parse(mcmetaText);
-                const anim = mcmeta.animation || {};
+                const anim: IAnimation = mcmeta.animation || {};
                 const fallbackFrameCount = Math.floor(texture.image.height / texture.image.width);
                 const fallbackFrametime = anim.frametime ? anim.frametime : 1;
-                const fallbackFrames = Array.from({ length: fallbackFrameCount }, (_, i) => i);
+                const fallbackFrames = anim.frames && Array.isArray(anim.frames) ? anim.frames : Array.from({ length: fallbackFrameCount }, (_, i) => i);
+
+                // フレームの総合再生時間を計算
+                let playlength = 0;
+                fallbackFrames.forEach( (frame: number | { index: number, time: number }) => {
+                    if (typeof frame === 'number' || (typeof frame === 'object' && !frame.time)) {
+                        playlength += fallbackFrametime;
+                    } else if (typeof frame === 'object' && frame.time) {
+                        playlength += frame.time;
+                    } else {
+                        playlength += 1;
+                    }
+                });
 
                 // アニメーション情報があれば userData に保存
                 (texture.userData as TextureUserData) = Object.assign(texture.userData, {
-                    animationDuration: fallbackFrametime * (anim.frames ? anim.frames.length : fallbackFrameCount), //総再生時間 レンダラーが参照
+                    animationDuration: playlength, //総再生時間 レンダラーが参照
                     totalFrames: anim.frames ? anim.frames.length : fallbackFrameCount, // フレーム数
                     interpolate: anim.interpolate || false, // クロスフェーディングのフラグ
-                    frames: anim.frames || fallbackFrames // フレーム配列自体も保存
+                    frames: fallbackFrames // フレーム配列自体も保存
                 }) as TextureUserData;
                 //console.log(`[MCTextureLoader] Animated texture detected. ${textureRef}`);
             }

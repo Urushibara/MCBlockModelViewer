@@ -156,7 +156,7 @@ export class RenderManager {
 
     public stopAnimation() {
         if (this._isAnimating) {
-            cancelAnimationFrame(this._animationFrameId as number);
+            //cancelAnimationFrame(this._animationFrameId as number);
             this._isAnimating = false;
             this.clock.stop();
         }
@@ -177,19 +177,17 @@ export class RenderManager {
     }
 
     public animate() {
-        if (!this._isAnimating) {
-            return;
+        if (this._isAnimating){
+            const delta = this.clock.getDelta(); // 前のフレームからの経過時間を取得
+            const deltaTimeMs = delta * 1000; // MCAnimatedMaterial がミリ秒を期待するため変換
+
+            // ----------------------------------------------------
+            this.objects.forEach(obj => {
+                if ('updateAnimation' in obj && typeof (obj as BlockMeshGroup).updateAnimation === 'function') {
+                    (obj as BlockMeshGroup).updateAnimation(deltaTimeMs); // BlockMeshGroup がMCAnimatedMaterialをカプセル化している
+                }
+            });
         }
-
-        const delta = this.clock.getDelta(); // 前のフレームからの経過時間を取得
-        const deltaTimeMs = delta * 1000; // MCAnimatedMaterial がミリ秒を期待するため変換
-
-        // ----------------------------------------------------
-        this.objects.forEach(obj => {
-            if ('updateAnimation' in obj && typeof (obj as BlockMeshGroup).updateAnimation === 'function') {
-                (obj as BlockMeshGroup).updateAnimation(deltaTimeMs); // BlockMeshGroup がMCAnimatedMaterialをカプセル化している
-            }
-        });
 
         this.renderer.render(this.scene, this.camera);
         this._animationFrameId = requestAnimationFrame(this.animate);

@@ -338,6 +338,43 @@ export class MCAnimatedMaterialHelper {
         }
     }
 
+    private updateUniforms() {
+        const { totalFrames, interpolate, frames } = this.animationData!;
+        const frameHeightUnit = 1.0 / this.actualFrames; // UV空間における1フレームの高さ単位
+
+        // 現在のフレームのUVオフセットを計算
+        let currentRawIndex = 0;
+        const currentFrameInfo = frames[this.currentFrameIndex];
+        if (typeof currentFrameInfo === 'number') {
+            currentRawIndex = currentFrameInfo;
+        } else {
+            currentRawIndex = (currentFrameInfo as Frame).index;
+        }
+        // flipY=falseの場合、UVオフセットは `(totalFrames - 1 - frameIndex) * frameHeightUnit`
+        const currentYOffset = (this.actualFrames - 1 - currentRawIndex) * frameHeightUnit;
+
+        // クロスフェーディング時のフレームのUVオフセット計算
+        let nextYOffset = 0;
+        if (interpolate) {
+            this.nextFrameIndex = (this.currentFrameIndex + 1) % totalFrames;
+            let nextRawIndex = 0;
+            const nextFrameInfo = frames[this.nextFrameIndex];
+            if (typeof nextFrameInfo === 'number') {
+                nextRawIndex = nextFrameInfo;
+            } else {
+                nextRawIndex = (nextFrameInfo as Frame).index;
+            }
+            nextYOffset = (this.actualFrames - 1 - nextRawIndex) * frameHeightUnit;
+        }
+        
+        if (this._shader) {
+            this._shader.uniforms.u_currentFrameYOffset.value = currentYOffset;
+            this._shader.uniforms.u_nextFrameYOffset.value = nextYOffset;
+            this._shader.uniforms.u_crossfadeBlend.value = this.crossfadeBlend;
+            //console.log(`${currentYOffset} ${nextYOffset} ${this.crossfadeBlend}`);
+        }
+    }
+
     /**
      * アニメーションを指定されたフレーム番号に強制的に設定します。
      * 通常のupdateループによる自動更新を停止している場合に、特定のフレームを表示したいときに呼び出します。
@@ -356,6 +393,25 @@ export class MCAnimatedMaterialHelper {
         this.applyFrameUV(this.currentFrameIndex); // UVオフセットを更新
     }
 
+
+    /**
+     * アニメーションを指定された進行度 (0.0〜1.0) に設定します。
+     */
+    private updateFrameFromProgress(progress: number): void {
+        const { totalFrames, interpolate } = this.animationData!;
+
+        if (interpolate) {
+            const frame = progress * totalFrames;
+            this.currentFrameIndex = Math.floor(frame);
+            this.nextFrameIndex = (this.currentFrameIndex + 1) % totalFrames;
+            this.crossfadeBlend = frame - this.currentFrameIndex;
+        } else {
+            this.currentFrameIndex = Math.floor(progress * totalFrames);
+            this.crossfadeBlend = 0;
+        }
+        this.updateUniforms();
+    }
+
     /**
      * アニメーションを指定された進行度 (0.0〜1.0) に設定します。
      * 通常のupdateループによる自動更新を停止している場合に、アニメーションの特定の時点を表示したいときに呼び出します。
@@ -367,14 +423,21 @@ export class MCAnimatedMaterialHelper {
             return;
         }
 
-        // 進行度から対応するフレーム番号を計算
-        const frameNumber = Math.floor(progress * this.animationData.totalFrames);
+	    this.updateFrameFromProgress(progress);
+    }
 
-        this.currentFrameIndex = frameNumber;
-        this.currentFrameTime = 0; // 新しいフレームに切り替わったため、時間をリセット
-        this.crossfadeBlend = 0; // 新しいフレームに切り替わったため、ブレンド率をリセット
+    /**
+     * アニメーションを指定された Minecraft の tick で渡します
+     * 
+     * @param tick - アニメーションの進行度 (0.0以上の浮動小数点)
+     */
+    public updateAtTick(tick: number): void {
+        if (!this.isAnimated || !this.animationData) return;
 
-        this.applyFrameUV(this.currentFrameIndex); // UVオフセットを更新
+        const localTick = tick % this.animationData.animationDuration;
+        const progress = localTick / this.animationData.animationDuration;
+
+        this.updateFrameFromProgress(progress);
     }
 
     /**
@@ -444,6 +507,7 @@ export function injectMCAnimationFeatures(
     (material as any).setFrame = base.setFrame.bind(base);
     (material as any).setProgress = base.setProgress.bind(base);
     (material as any).reset = base.reset.bind(base);
+    (material as any).updateAtTick = base.updateAtTick.bind(base);
 
     // 既存のonBeforeCompileを保存し、baseのonBeforeCompileを先に呼び出すようにオーバーライド
     const origCompile = material.onBeforeCompile;
@@ -476,6 +540,7 @@ export class MCAnimatedBasicMaterial extends THREE.MeshBasicMaterial {
     public update = (_deltaTime:number) => {};
     public setFrame = (_frameNumber: number) => {};
     public setProgress = (_progress: number) => {};
+    public updateAtTick = (_tick: number) => {};
     public dispose = () => {};
 }
 
@@ -492,5 +557,6 @@ export class MCAnimatedLambertMaterial extends THREE.MeshLambertMaterial {
     public update = (_deltaTime:number) => {};
     public setFrame = (_frameNumber: number) => {};
     public setProgress = (_progress: number) => {};
+    public updateAtTick = (_tick: number) => {};
     public dispose = () => {};
 }
