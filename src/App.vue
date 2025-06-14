@@ -927,4 +927,36 @@ h2, h4 {
   border-radius: 10px;
   transition: width 0.3s ease-out;
 }
+
+/* Small screens (less than 1024px) */
+@media (max-width: 1023px) {
+    .main-container {
+        flex-direction: column; /* Stack items vertically */
+        align-items: center; /* Center items in column */
+        padding: 10px;
+    }
+
+    .controls-panel {
+        width: 100%; /* Take full width on small screens */
+        max-width: 602px; /* Limit width for very large phones/small tablets */
+        box-sizing: border-box;
+        margin-bottom: 20px; /* Space between panels */
+    }
+
+    .render-section {
+        width: 100%; /* Take full width */
+        min-height: unset; /* Remove fixed min-height */
+        align-items: center;
+    }
+}
+
+/* Large screens (>= 1024px) */
+@media (min-width: 1024px) {
+    /* render-section の min-width を削除し、flex-grow を適用 */
+    .render-section {
+        min-width: unset; /* 固定の最小幅を解除 */
+        min-height: 670px; /* オリジナルは維持 */
+        flex-grow: 1; /* 残りのスペースを埋める */
+    }
+}
 </style>

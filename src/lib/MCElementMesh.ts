@@ -17,6 +17,11 @@ interface InternalStateRotation {
     angle: IAngle;
 }
 
+/**
+ * エンティティブロック用補完拡張
+ * texture: Target texture ID. e.g.："#cube"
+ * color: Minecraft color name. e.g.："red"
+ */
 interface IBlockCustomOption extends IBlockOption {
     diffuse?: {
         texture: string;
@@ -55,7 +60,7 @@ export class MCElementMesh extends THREE.Object3D {
     private _animatedMaterials: Set<MCAnimatedBasicMaterial | MCAnimatedLambertMaterial> = new Set();
     // 処理対象のモデル要素データ (オリジナルMinecraft座標を保持)
     private _element: ModelElement;
-    // マテリアルの追加オプション
+    // マテリアルの染色オプション
     private _diffuseColors = [
         { name: "block/redstone_dust", color: 0xFC3100 },
         { name: "block/lily_pad", color: 0x208030 },
@@ -117,7 +122,7 @@ export class MCElementMesh extends THREE.Object3D {
             // _computeDefaultUVは、_element (オリジナルMinecraft座標) を参照してUVを生成
             const defaultUVs = this._computeDefaultUV(faceName as IFaceName);
             if (isDebug && !faceData.uv && false) {
-                console.log(`Face: ${faceName}'s uv is omitted. ComputedUV: ${JSON.stringify(defaultUVs)}`);
+                console.log(`[MCElementMesh] UV for face "${faceName}" was omitted. Computed UV: ${JSON.stringify(defaultUVs)}`);
             }
             const uvRect = faceData.uv ? faceData.uv : defaultUVs;
 
@@ -173,10 +178,10 @@ export class MCElementMesh extends THREE.Object3D {
             if (isUvLocked) {
                 // ジオメトリ回転後の面の回転角度を求める
                 const currentAngle = this._getFaceTextureRotation(faceName as IFaceName, blockstateRotations);
-                rotatedUvs = this._rotateGrobalUVs(Uvs, -currentAngle as IAngle); //逆回転
+                rotatedUvs = this._rotateUVsAroundCenter(Uvs, -currentAngle as IAngle); //逆回転
 
                 if (isDebug && false) {
-                    console.log(`[MCElementMesh] uvlock. face: ${faceName}, angle: ${currentAngle}`);
+                    console.log(`[MCElementMesh] 'uvlock' detected. face: ${faceName}, angle: ${currentAngle}`);
                 }
             } else {
                 // 面ごとのUV回転を考慮
@@ -188,7 +193,7 @@ export class MCElementMesh extends THREE.Object3D {
                 }
 
                 // 切り抜かれた状態で回転させる
-                rotatedUvs = this._rotateUVs(Uvs, uvRotationDegree as IAngle);
+                rotatedUvs = this._remapUVsByQuadRotation(Uvs, uvRotationDegree as IAngle);
             }
 
 
@@ -281,6 +286,9 @@ export class MCElementMesh extends THREE.Object3D {
         (this as THREE.Object3D).userData.materials = materialsToDispose;
         (this as THREE.Object3D).userData.geometries = geometriesToDispose;
     }
+
+    // constructorここまで
+    //=====================================================================================
 
     /**
      * elements情報の各面に対応するPlaneGeometryを作成し、Three.jsのワールド座標系に配置します。
@@ -520,12 +528,13 @@ export class MCElementMesh extends THREE.Object3D {
     }
 
     /**
-     * UV座標を指定角度（90, 180, 270度）で回転させる
+     * UV座標を指定角度（90, 180, 270度）で回転させる。
+     * テクスチャごと回転させるイメージ
      * @param uvs - 回転対象の THREE.Vector2 配列
      * @param angle - 回転角度（0 | 90 | 180 | 270）
      * @returns 回転後の新しい THREE.Vector2 配列
      */
-    private _rotateUVs(uvs: THREE.Vector2[], angle: IAngle): THREE.Vector2[] {
+    private _remapUVsByQuadRotation(uvs: THREE.Vector2[], angle: IAngle): THREE.Vector2[] {
         let count = Math.floor(((360 + angle) % 360) / 90);
         if (count === 0) return uvs;
 
@@ -574,14 +583,14 @@ export class MCElementMesh extends THREE.Object3D {
         return newUVs;
     }
 
-
     /**
-     * UV座標を指定角度（90, 180, 270度）で回転させる
+     * UV座標を指定角度（90, 180, 270度）で頂点を回転させる。
+     * ピンを抜いて、回転後に同じ形状で布を貼り直すイメージ。
      * @param uvs - 回転対象の THREE.Vector2 配列
      * @param angle - 回転角度（0 | 90 | 180 | 270）
      * @returns 回転後の新しい THREE.Vector2 配列
      */
-    private _rotateGrobalUVs(uvsToRotate: THREE.Vector2[], rotationDegrees: IAngle): THREE.Vector2[] {
+    private _rotateUVsAroundCenter(uvsToRotate: THREE.Vector2[], rotationDegrees: IAngle): THREE.Vector2[] {
 
         // 回転角をラジアンに変換 (0〜360度の範囲に正規化)
         const angle = THREE.MathUtils.degToRad((rotationDegrees + 360) % 360);

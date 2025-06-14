@@ -8,6 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-dialog": "^2.2.2",
+    "@tauri-apps/plugin-fs": "^2.3.0",
     "@urushibara/canvas2apng": "github:Urushibara/canvas2apng",
     "jszip": "^3.10.1",
     "three": "^0.177.0",

@@ -11,7 +11,7 @@ export class APNGExporter {
 
 	private _materials: MCAnimatedMaterial[] = [];
 	private _lcmTicks: number = 0;
-	
+
 	/**
 	 * BlockMeshGroupからマテリアルを抽出
 	 * AnimatedMaterialかどうかチェックして、総再生時間を計算
@@ -67,13 +67,13 @@ export class APNGExporter {
 		this._lcmTicks = 0; // 最小公倍数のティックタイム
 		const durations: number[] = [];
 
-		(this._materials as MCAnimatedMaterial[]).forEach( material => {
-			if ((material as THREE.Material).map){
-				const texture:THREE.Texture = (material as THREE.Material).map;
+		(this._materials as MCAnimatedMaterial[]).forEach(material => {
+			if ((material as THREE.Material).map) {
+				const texture: THREE.Texture = (material as THREE.Material).map;
 				if (texture.userData &&
 					typeof texture.userData === 'object' &&
 					typeof texture.userData?.animationDuration === 'number'
-				){
+				) {
 					const userData: TextureUserData = texture.userData;
 					durations.push(userData.animationDuration);
 					(material as MCAnimatedMaterial).setFrame(0);
@@ -110,13 +110,13 @@ export class APNGExporter {
 		return isAnimate; //アニメーションするか
 	}
 
-	public saveAsAPNG(option:{canvas:HTMLCanvasElement, onProgress?:Function, onDone?:Function}):void {
+	public saveAsAPNG(option: { canvas: HTMLCanvasElement, onProgress?: Function, onDone?: Function }): void {
 		const encoder = new APNGencoder(option.canvas);
 		encoder.setRepeat(0);
 		encoder.setBlend(0);
 		const tickMs = 50; // 1tick = 50ms
 		const totalTicks = this._lcmTicks;
-		const maxDurationMs = 10000;
+		const maxDurationMs = 5000;
 		const frameRenderTime = 16; // setTimeout実質
 		const maxFramesCanRender = Math.floor(maxDurationMs / frameRenderTime); // まずは何フレーム描けるか（処理時間的に）
 		const fullFrameCount = Math.floor((totalTicks * tickMs) / 20); // 通常フレーム数 20msごと
@@ -124,6 +124,8 @@ export class APNGExporter {
 
 		let apngFrameDelay = 2;
 		let dropRate = 1;
+		const estimatedFrameCount = (totalTicks * tickMs) / (apngFrameDelay * 10);
+
 		if (fullFrameCount > maxFramesCanRender) {
 			// 描けるフレーム数より多かったら dropRate を調整
 			dropRate = Math.ceil(fullFrameCount / maxFramesCanRender);
@@ -133,13 +135,12 @@ export class APNGExporter {
 			const delayPerFrameMs = totalDurationMs / adjustedFrameCount;
 			apngFrameDelay = Math.max(2, Math.floor(delayPerFrameMs / 10)); // APNG単位(1/100s)
 		}
-		const estimatedFrameCount = (totalTicks * tickMs) / (apngFrameDelay * 10);
 
-		encoder.setDelay(apngFrameDelay);		
-        encoder.start();
+		encoder.setDelay(apngFrameDelay);
+		encoder.start();
 
 		let tick = 0, lastProgressUpdate = 0;
-    	const nextFrame = () => {
+		const nextFrame = () => {
 			setTimeout(async () => {
 				if (tick > 0) {
 					encoder.addFrame(); // 前回の描画で保存(描画の遅れを考慮)
@@ -155,7 +156,7 @@ export class APNGExporter {
 							lastProgressUpdate = now;
 						}
 					}
-					tick +=dropRate;
+					tick += dropRate;
 					nextFrame();
 				} else {
 					encoder.finish();

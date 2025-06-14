@@ -19,7 +19,6 @@ export class RenderManager {
     public objects: any[];
     private _isAnimating: boolean;
     private _lights: any[] = [];
-    private _animationFrameId: number;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -48,7 +47,6 @@ export class RenderManager {
         this.clock = new THREE.Clock();
         this.objects = []; // シーンに追加されたオブジェクトを保持するリスト
 
-        this._animationFrameId = -1;
         this._isAnimating = false;
 
         this.animate = this.animate.bind(this);
@@ -149,14 +147,13 @@ export class RenderManager {
     public startAnimation() {
         if (!this._isAnimating) {
             this._isAnimating = true;
-            this._animationFrameId = requestAnimationFrame(this.animate);
+            requestAnimationFrame(this.animate);
             this.clock.start();
         }
     }
 
     public stopAnimation() {
         if (this._isAnimating) {
-            //cancelAnimationFrame(this._animationFrameId as number);
             this._isAnimating = false;
             this.clock.stop();
         }
@@ -190,7 +187,7 @@ export class RenderManager {
         }
 
         this.renderer.render(this.scene, this.camera);
-        this._animationFrameId = requestAnimationFrame(this.animate);
+        requestAnimationFrame(this.animate);
     }
 
     public resize(newSize: number) {
