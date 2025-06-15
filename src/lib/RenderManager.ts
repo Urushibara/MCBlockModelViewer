@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
 import { BlockMeshGroup } from './BlockMeshGroup';
+import { APNGExporter } from './APNGExporter';
 import type { MCAnimatedBasicMaterial } from './MCAnimatedMaterials';
 
 export class RenderManager {
@@ -15,7 +15,9 @@ export class RenderManager {
     public height: number;
     public viewSize: number;
     public aspectRatio: number;
-    public clock:THREE.Clock;
+    public heightScale: number;
+    public moveY: number;
+    public clock: THREE.Clock;
     public objects: any[];
     private _isAnimating: boolean;
     private _lights: any[] = [];
@@ -33,6 +35,8 @@ export class RenderManager {
 
         this.viewSize = 25.3;
         this.aspectRatio = this.width / this.height;
+        this.heightScale = 1;
+        this.moveY = 0;
 
         this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, canvas: canvas, preserveDrawingBuffer: true });
         this.renderer.setClearColor(0xFFFFFF, 0);
@@ -65,13 +69,58 @@ export class RenderManager {
 
         // カメラの初期位置
         this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
-        
+
         // カメラを中心へ向ける
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
 
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableKeys = false;
+    }
+
+    public recalcCanvasSize(exporter: APNGExporter) {
+        if (!this.scene || this.objects.length == 0) return;
+        this.stopAnimation();
+        const heightScale = exporter.getMaxVisibleHeightScale(this.scene);
+        this.startAnimation();
+        this.heightScale = heightScale;
+        const baseHeight = this.width;
+        this.height = Math.ceil(heightScale * baseHeight);
+        this.renderer.setSize(this.width, this.height);
+        this.aspectRatio = this.height / this.width;
+        const halfW = this.viewSize / 2;
+        const halfH = this.aspectRatio * this.viewSize / 2;
+        this.camera.left = -halfW;
+        this.camera.right = halfW;
+        this.camera.top = halfH;
+        this.camera.bottom = -halfH;
+        const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
+        // 初期位置
+        this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
+        this.camera.lookAt(this.scene.position);
+        this.controls.target.copy(this.scene.position);
+        this.moveY = 0;
+        // ここからカメラ位置変更
+        if (heightScale > 1.0) {
+            const extraTop = heightScale - 1.0;
+            // AC: ローカルY軸に沿って動かした量
+            const ac = extraTop * halfW;
+            // θA: カメラの視線角度
+            const angleCam = this.camera.rotation.x;
+            // cosθA
+            const cosThetaA = Math.cos(angleCam);
+            // AB = AC / cosθA
+            const ab = ac / cosThetaA;
+            this.camera.position.y += ab;
+
+            this.moveY = ab;
+            const targetPos = new THREE.Vector3(0, this.moveY, 0);
+            this.camera.lookAt(targetPos);
+            this.controls.target.copy(targetPos);
+        }
+        this.controls.update();
+        this.camera.updateProjectionMatrix();
+        this.controls.saveState();
     }
 
     public initLighting() {
@@ -121,6 +170,7 @@ export class RenderManager {
 
     public resetCamera() {
         this.controls.reset();
+        this.controls.update();
     }
 
     public lights() {
@@ -129,18 +179,20 @@ export class RenderManager {
 
     public rotateCamera(angle: number) {
         const initialPosition = this.camera.position;
+        const scenePos = this.scene.position.clone();
+        scenePos.y = this.moveY;
 
         // 中心を原点にしたローカル位置に変換
-        const relativePosition = initialPosition.clone().sub(this.scene.position);
+        const relativePosition = initialPosition.clone().sub(scenePos);
 
         // Y軸で180度回転（Math.PIラジアン）
         const rotatedPosition = relativePosition.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(angle));
 
         // ワールド位置に戻す
-        this.camera.position.copy(rotatedPosition.add(this.scene.position));
+        this.camera.position.copy(rotatedPosition.add(scenePos));
 
         // カメラを中心へ向ける
-        this.camera.lookAt(this.scene.position);
+        this.camera.lookAt(scenePos);
         this.camera.updateProjectionMatrix();
     }
 
@@ -174,7 +226,7 @@ export class RenderManager {
     }
 
     public animate() {
-        if (this._isAnimating){
+        if (this._isAnimating) {
             const delta = this.clock.getDelta(); // 前のフレームからの経過時間を取得
             const deltaTimeMs = delta * 1000; // MCAnimatedMaterial がミリ秒を期待するため変換
 
@@ -191,22 +243,32 @@ export class RenderManager {
     }
 
     public resize(newSize: number) {
+        this.resetCamera();
+        const heightScale = this.heightScale;
+        const baseHeight = newSize;
         this.width = newSize;
-        this.height = newSize;
-        this.canvas.setAttribute('width', this.width.toString());
-        this.canvas.setAttribute('height', this.height.toString());
-        this.canvas.style.width = `${this.width}px`;
-        this.canvas.style.height = `${this.height}px`;
+        this.height = Math.ceil(heightScale * baseHeight);
         this.renderer.setSize(this.width, this.height);
-        this.aspectRatio = this.width / this.height;
-
-        const halfW = this.aspectRatio * this.viewSize / 2;
-        const halfH = this.viewSize / 2;
-
+        this.aspectRatio = this.height / this.width;
+        const halfW = this.viewSize / 2;
+        const halfH = this.aspectRatio * this.viewSize / 2;
         this.camera.left = -halfW;
         this.camera.right = halfW;
         this.camera.top = halfH;
         this.camera.bottom = -halfH;
+        const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
+        // 初期位置
+        this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
+        this.camera.lookAt(this.scene.position);
+        // ここからカメラ位置変更
+        if (heightScale > 1.0) {
+            const extraTop = heightScale - 1.0;
+            const ac = extraTop * halfW;
+            const angleCam = this.camera.rotation.x;
+            const cosThetaA = Math.cos(angleCam);
+            const ab = ac / cosThetaA;
+            this.camera.position.y += ab;
+        }
         this.camera.updateProjectionMatrix();
     }
 }

@@ -9,17 +9,19 @@ export interface MCTextures {
 }
 
 /**
- * テクスチャのカスタムUserDataの型定義 (アニメーション情報など)
+ * テクスチャのuserDataに格納されるアニメーション情報のインターフェース
  */
 export interface TextureUserData {
-    texture_id: string;
-    texture_name: string;
-    texture_path: string;
-    animationDuration: number; // 合計ティック数 (1ティック = 50ミリ秒)
-    totalFrames: number;       // 総フレーム数
-    interpolate: boolean;      // クロスフェードのフラグ
-    frames: (number | { index: number, time: number })[]; // フレーム配列
-}
+    texture_id: string,
+    texture_name: string,
+    texture_path: string,
+    animationDuration: number, // 合計ティック数 (1ティック = 50ミリ秒)
+    totalFrames: number,       // 総フレーム数
+    interpolate: boolean,      // クロスフェードのフラグ
+    frames: (number | Frame)[] // フレーム配列
+};
+
+export interface Frame { index: number, time: number };
 
 export class MCTextureLoader {
     // プライベートフィールドから通常のプロパティに変更

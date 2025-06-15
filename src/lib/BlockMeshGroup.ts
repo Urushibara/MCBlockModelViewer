@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { BlockModelLoader } from './BlockModelLoader';
 import { MCTextureLoader } from './MCTextureLoader';
 import { MCElementMesh } from './MCElementMesh';
+import { APNGExporter } from './APNGExporter';
 import type { IBlockOption } from './interfaces/blockState';
-import type { MCTextures } from './MCTextureLoader'
+import type { MCTextures } from './MCTextureLoader';
 
 import { toRaw } from 'vue';
 
@@ -25,6 +26,8 @@ export class BlockMeshGroup extends THREE.Group {
     _textureLoader:MCTextureLoader; // MCTextureLoader のインスタンス
     _isFallbackTexLoaded = false;
     _blockName: string;
+    public isAnimate = false;
+    public exporter = new APNGExporter();
 
     // キャッシュ
     _modelCache = new Map();     // モデルパス -> ロード済みかつ解決済みモデルデータ
@@ -193,6 +196,7 @@ export class BlockMeshGroup extends THREE.Group {
                 throw new Error(message);
             }
         }
+        this.isAnimate = this.exporter.prepare(this);
         this.reset();
     }
 

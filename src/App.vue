@@ -9,7 +9,6 @@ import { MCTextureLoader } from './lib/MCTextureLoader';
 import { BlockStateManager } from './lib/BlockStateManager';
 import { BlockMeshGroup } from './lib/BlockMeshGroup';
 import { RenderManager } from './lib/RenderManager';
-import { APNGExporter } from './lib/APNGExporter';
 import type { IBlockOption } from './lib/interfaces/blockState';
 import type { IActiveModelGroup, IPropertyOptions, IPropertyOption, IPossibleProperty } from './lib/BlockStateManager';
 
@@ -24,7 +23,7 @@ const blockModelLoader = new BlockModelLoader(jarLoader); // jarLoaderを注入
 const textureLoader = new MCTextureLoader(jarLoader); // jarLoaderを注入
 const blockStateManager = new BlockStateManager();
 let blockMeshGroup: BlockMeshGroup | null = null;
-const renderManager = ref < RenderManager | null > (null);
+let renderManager: RenderManager;
 
 // UI連動用 リアクティブな状態
 const selectedBlockName = ref < string | null > (null);
@@ -66,7 +65,7 @@ const activeModelGroups = computed < IActiveModelGroup[] > (() => {
 // RenderManager の初期化と THREE.js シーンへの追加
 onMounted(() => {
     if (renderCanvas.value) {
-        renderManager.value = new RenderManager(renderCanvas.value);
+        renderManager = new RenderManager(renderCanvas.value);
     }
 });
 
@@ -110,7 +109,7 @@ const onResourcePackFileChange = async (event: Event) => {
         $toast.open({ message: `${successfulLoads} resource pack(s) loaded.`, type: 'success' });
         updateListsAndUI();
         // 削除されたZIPが現在表示中のブロックに影響を与える可能性があるので、ブロックを再ロード
-        if (selectedBlockName.value && renderManager.value) {
+        if (selectedBlockName.value && renderManager) {
             await loadAndSetBlockState();
         }
     }
@@ -124,7 +123,7 @@ const removeResourcePack = async (id: string) => {
         updateListsAndUI(); // UIリストを更新
 
         // 削除されたZIPが現在表示中のブロックに影響を与える可能性があるので、ブロックを再ロード
-        if (selectedBlockName.value && renderManager.value) {
+        if (selectedBlockName.value && renderManager) {
             $toast.open({ message: 'Reloading block due to resource pack removal...', type: 'info', duration: 1500 });
             await loadAndSetBlockState();
         }
@@ -164,7 +163,7 @@ const updateListsAndUI = () => {
     availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
 
     // デフォルトブロックの選択（初回またはnamespace変更時）
-    const debug_target = isDebug ? "prismarine" : "grass_block";
+    const debug_target = isDebug ? "blue_banner" : "grass_block";
     if (!lastLoaddedBlock && availableBlocks.value.includes(debug_target)) {
         selectedBlockName.value = debug_target;
     } else if (lastLoaddedBlock && availableBlocks.value.includes(lastLoaddedBlock)) {
@@ -216,7 +215,7 @@ const applyNewResourcePackOrder = async () => {
         $toast.open({ message: 'Resource pack order updated.', type: 'info' });
 
         // リソースパックの順序が変わったので、現在表示中のブロックを再ロード
-        if (selectedBlockName.value && renderManager.value) {
+        if (selectedBlockName.value && renderManager) {
             $toast.open({ message: 'Reloading block due to resource pack change...', type: 'info', duration: 1500 });
             await loadAndSetBlockState();
         }
@@ -240,12 +239,12 @@ watch(selectedNamespace, async (newNamespace) => {
 // selectedBlockName の変更を監視
 watch(selectedBlockName, async (newBlockName) => {
 
-    if (newBlockName && renderManager.value) {
-        renderManager.value.resetCamera();
+    if (newBlockName && renderManager) {
+        renderManager.resetCamera();
         await loadAndSetBlockState();
 
     } else {
-        if (blockMeshGroup && renderManager.value) {
+        if (blockMeshGroup && renderManager) {
             blockMeshGroup.clearBlock();
         }
     }
@@ -295,7 +294,7 @@ const onPropatyChange = () => {
 
 // 現在選択されているブロック状態とモデルをロードし、RenderManagerに設定する
 const loadAndSetBlockState = async () => {
-    if (!selectedBlockName.value || !selectedNamespace.value || !renderManager.value) {
+    if (!selectedBlockName.value || !selectedNamespace.value || !renderManager) {
         return;
     }
 
@@ -322,7 +321,7 @@ const loadAndSetBlockState = async () => {
             modelLoader: blockModelLoader,
             textureLoader: textureLoader
         });
-        renderManager.value.addObject(blockMeshGroup);
+        renderManager.addObject(blockMeshGroup);
     }
 
     // 可能なプロパティを取得し、UIを更新
@@ -435,7 +434,7 @@ const renderModel = async () => {
         try {
             await blockMeshGroup.prepare(groupsToRender.value, selectedBlockName.value ?? "");
             await blockMeshGroup.show(groupsToRender.value);
-        }catch(error){
+        } catch (error) {
             if (error instanceof Error) {
                 $toast.open({ message: error.message, type: "warning" });
             } else {
@@ -446,16 +445,17 @@ const renderModel = async () => {
         blockMeshGroup.clearBlock();
         $toast.open({ message: "No model to render for selected properties.", type: "warning" });
     }
+    renderManager?.recalcCanvasSize(blockMeshGroup.exporter);
 }
 
 const resetCamera = () => {
-    if (!renderManager.value) return;
-    renderManager.value.resetCamera();
+    if (!renderManager) return;
+    renderManager.resetCamera();
 }
 
 const rotate = () => {
-    if (!renderManager.value) return;
-    renderManager.value?.rotateCamera(45);
+    if (!renderManager) return;
+    renderManager?.rotateCamera(45);
 }
 
 
@@ -505,8 +505,8 @@ const canvasSize = ref < number > (600); // 初期値として600x600pxを設定
 
 watch(canvasSize, () => {
     nextTick(() => {
-        if (renderManager.value?.renderer) {
-            renderManager.value.resize(canvasSize.value);
+        if (renderManager?.renderer) {
+            renderManager.resize(canvasSize.value);
         }
     });
 });
@@ -524,10 +524,10 @@ const saveAsImage = () => {
     buttonDisabled.value = true;
     progress.value = 0;
     const link = document.createElement('a');
-    const apngexp = new APNGExporter();
-    const isAnimate = apngexp.prepare(blockMeshGroup);
+    const apngexp = blockMeshGroup.exporter;
+    const isAnimate = blockMeshGroup.isAnimate;
     if (isAnimate) {
-        renderManager.value?.stopAnimation();
+        renderManager?.stopAnimation();
         apngexp.saveAsAPNG({
             canvas: canvas,
             onProgress: (tick) => {
@@ -541,7 +541,7 @@ const saveAsImage = () => {
                 link.click();
                 document.body.removeChild(link);
                 setTimeout(()=>{URL.revokeObjectURL(dataURL);}, 1000); // 解放
-                renderManager.value?.startAnimation();
+                renderManager?.startAnimation();
                 buttonDisabled.value = false;
             }
         });
@@ -856,6 +856,7 @@ const saveAsImage = () => {
     position: relative;
     border: solid 1px #ddd;
     min-height: 600px;
+    min-width: 600px;
 }
 
 .size-ui-box {
