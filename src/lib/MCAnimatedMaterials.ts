@@ -367,12 +367,11 @@ export class MCAnimatedMaterialHelper {
      * @param frameNumber - 設定したいフレーム番号 (0からtotalFrames-1の範囲)
      */
     public setFrame(frameNumber: number): void {
-        if (!this.isAnimated || !this.animationData || frameNumber < 0 || frameNumber >= this.animationData.totalFrames) {
-            console.warn(`[MCAnimatedMaterial] Invalid frame number ${frameNumber}. Total frames: ${this.animationData?.totalFrames}`);
+        if (!this.isAnimated || !this.animationData || frameNumber < 0) {
             return;
         }
 
-        this.currentFrameIndex = frameNumber;
+        this.currentFrameIndex = frameNumber % this.animationData.totalFrames; //最大値を超えていた場合も許容
         this.currentFrameTime = 0; // 新しいフレームに切り替わったため、時間をリセット
         this.crossfadeBlend = 0; // 新しいフレームに切り替わったため、ブレンド率をリセット
 

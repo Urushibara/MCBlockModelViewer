@@ -206,8 +206,8 @@ export class APNGExporter {
 		encoder.setBlend(0);
 		const tickMs = 50; // 1tick = 50ms
 		const totalTicks = this._lcmTicks;
-		const maxDurationMs = 5000;
-		const frameRenderTime = 16; // setTimeout実質
+		const maxDurationMs = 3000;
+		const frameRenderTime = 5; // setTimeout実質
 		const maxFramesCanRender = Math.floor(maxDurationMs / frameRenderTime); // まずは何フレーム描けるか（処理時間的に）
 		const fullFrameCount = Math.floor((totalTicks * tickMs) / 20); // 通常フレーム数 20msごと
 		const totalDurationMs = totalTicks * tickMs;
