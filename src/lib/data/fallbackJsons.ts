@@ -861,7 +861,7 @@ export const complement_blocks = {
 		"parent": "block/shulker_box",
 		"textures": { "box": "entity/shulker/shulker_white" }
 	},
-	// banners
+	// banners (Note: These blockstates are custom and not available in vanilla.)
 	"assets/minecraft/blockstates/white_banner.json": { "variants": { "": { "model": "block/banner", "diffuse": { "texture": "#flag", "color": "white" } } } },
 	"assets/minecraft/blockstates/orange_banner.json": { "variants": { "": { "model": "block/banner", "diffuse": { "texture": "#flag", "color": "orange" } } } },
 	"assets/minecraft/blockstates/magenta_banner.json": { "variants": { "": { "model": "block/banner", "diffuse": { "texture": "#flag", "color": "magenta" } } } },
@@ -923,6 +923,7 @@ export const complement_blocks = {
 			}
 		]
 	},
+	// wall banners (Note: These blockstates are custom and not available in vanilla.)
 	"assets/minecraft/blockstates/white_wall_banner.json": { "variants": { "": { "model": "block/wall_banner", "diffuse": { "texture": "#flag", "color": "white" } } } },
 	"assets/minecraft/blockstates/orange_wall_banner.json": { "variants": { "": { "model": "block/wall_banner", "diffuse": { "texture": "#flag", "color": "orange" } } } },
 	"assets/minecraft/blockstates/magenta_wall_banner.json": { "variants": { "": { "model": "block/wall_banner", "diffuse": { "texture": "#flag", "color": "magenta" } } } },

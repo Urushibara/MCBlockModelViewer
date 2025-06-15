@@ -583,7 +583,7 @@ const saveAsImage = () => {
                     files.</p>
             </div>
             <div class="use-fallback-models">
-                <input type="checkbox" id="useFallbackmodel" v-model="useFallbackmodel"><label for="useFallbackmodel">Use complement models for the entity blocks</label>
+                <input type="checkbox" id="useFallbackmodel" v-model="useFallbackmodel"><label for="useFallbackmodel">Use complement models for the entity blocks<span class="sup"><a href="https://codepen.io/pneuma01/pen/OPVxVKq.js" target="_blank">{{'[*]'}}</a></span></label>
             </div>
 
             <hr />
@@ -927,6 +927,11 @@ h2, h4 {
   background-color: #4caf50;
   border-radius: 10px;
   transition: width 0.3s ease-out;
+}
+
+.sup {
+  font-size: small;
+  vertical-align: super;
 }
 
 /* Small screens (less than 1024px) */
