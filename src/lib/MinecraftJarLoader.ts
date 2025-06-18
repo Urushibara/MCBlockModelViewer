@@ -5,32 +5,32 @@ import { mock_datas, complement_blocks } from "./data/fallbackJsons";
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 interface LoadedZip {
-    id: string; // ZIPファイルの識別子 (例: 'vanilla', 'resourcepack_hd', 'my_mod')
+    id: string; // Identifier for the ZIP file (e.g., 'vanilla', 'resourcepack_hd', 'my_mod')
     zip: JSZip;
 }
 
 export class MinecraftJarLoader {
-    // 複数のZIPインスタンスを保持し、後に追加されたものが優先されるように配列で管理
+    // Manages multiple ZIP instances in an array, with later additions taking precedence
     private loadedZips: LoadedZip[] = [];
 
     public useComplementData = true;
 
     constructor() {
-        // コンストラクタで特別な初期化は不要
+        // No special initialization needed in the constructor
     }
 
     /**
-     * MinecraftのJARファイルやリソースパック（ZIP）ファイルをロードし、内部に登録します。
-     * 後から追加されたファイルほど優先順位が高くなります。
-     * @param {File | Blob | ArrayBuffer} fileData - ロードするZIPファイルのデータ
-     * @param {string} id - このZIPファイルを識別するためのユニークなID (例: 'vanilla', 'my_resourcepack')
+     * Loads and registers a Minecraft JAR file or resource pack (ZIP) file internally.
+     * Files added later have higher priority.
+     * @param {File | Blob | ArrayBuffer} fileData - The data of the ZIP file to load
+     * @param {string} id - A unique ID to identify this ZIP file (e.g., 'vanilla', 'my_resourcepack')
      * @returns {Promise<void>}
-     * @throws {Error} ロードに失敗した場合
+     * @throws {Error} If loading fails
      */
     public async addZipFile(fileData: File | Blob | ArrayBuffer, id: string): Promise<void> {
         if (this.loadedZips.some(lz => lz.id === id)) {
             console.warn(`[MinecraftJarLoader] ZIP file with ID "${id}" already loaded. Overwriting.`);
-            this.loadedZips = this.loadedZips.filter(lz => lz.id !== id); // 既存のものを削除して新しいもので上書き
+            this.loadedZips = this.loadedZips.filter(lz => lz.id !== id); // Remove existing to overwrite with new
         }
 
         const newZip = new JSZip();
@@ -45,8 +45,8 @@ export class MinecraftJarLoader {
     }
 
     /**
-     * 指定されたIDのZIPファイルをアンロードします。
-     * @param {string} id - アンロードするZIPファイルのID
+     * Unloads the ZIP file with the specified ID.
+     * @param {string} id - The ID of the ZIP file to unload
      */
     public unloadZipFile(id: string): void {
         const initialLength = this.loadedZips.length;
@@ -59,7 +59,7 @@ export class MinecraftJarLoader {
     }
 
     /**
-     * ロードされているすべてのZIPファイルをクリアします。
+     * Clears all loaded ZIP files.
      */
     public clearAllZips(): void {
         this.loadedZips = [];
@@ -67,10 +67,10 @@ export class MinecraftJarLoader {
     }
 
     /**
-     * JARファイル内の指定されたパスのテキストコンテンツを取得します。
-     * 複数のZIPファイルがロードされている場合、優先順位が高い（配列の最後にある）ファイルから順に検索します。
-     * @param {string} path - ZIPファイル内のパス (例: "assets/minecraft/blockstates/stone.json")
-     * @returns {Promise<string | null>} テキストコンテンツ、または見つからない場合は null
+     * Retrieves the text content of the specified path within the JAR file.
+     * If multiple ZIP files are loaded, it searches from the highest priority file (last in the array).
+     * @param {string} path - The path within the ZIP file (e.g., "assets/minecraft/blockstates/stone.json")
+     * @returns {Promise<string | null>} The text content, or null if not found
      */
     public async getText(path: string): Promise<string | null> {
         if (this.loadedZips.length === 0) {
@@ -78,19 +78,19 @@ export class MinecraftJarLoader {
             return null;
         }
 
-        // デバッグ用モックデータ
+        // Mock data for debugging
         if (isDebug) {
             if (mock_datas.hasOwnProperty(path)) {
                 return JSON.stringify(mock_datas[path]);
             }
         }
         
-        // データ補完
+        // Data complementation
         if (this.useComplementData && complement_blocks.hasOwnProperty(path)) {
             return JSON.stringify(complement_blocks[path]);
         }
 
-        // 優先順位が高いものから検索 (配列の最後から)
+        // Search from highest priority (from the end of the array)
         for (let i = this.loadedZips.length - 1; i >= 0; i--) {
             const { zip } = this.loadedZips[i];
             const entry = zip.file(path);
@@ -103,14 +103,14 @@ export class MinecraftJarLoader {
             }
         }
 
-        return null; // どのZIPにも見つからなかった場合
+        return null; // Not found in any ZIP
     }
 
     /**
-     * JARファイル内の指定されたパスのバイナリコンテンツ (Uint8Array) を取得します。
-     * 複数のZIPファイルがロードされている場合、優先順位が高い（配列の最後にある）ファイルから順に検索します。
-     * @param {string} path - JARファイル内のパス (例: "assets/minecraft/textures/block/stone.png")
-     * @returns {Promise<Uint8Array | null>} バイナリコンテンツ、または見つからない場合は null
+     * Retrieves the binary content (Uint8Array) of the specified path within the JAR file.
+     * If multiple ZIP files are loaded, it searches from the highest priority file (last in the array).
+     * @param {string} path - The path within the JAR file (e.g., "assets/minecraft/textures/block/stone.png")
+     * @returns {Promise<Uint8Array | null>} The binary content, or null if not found
      */
     public async getFile(path: string): Promise<Uint8Array | null> {
         if (this.loadedZips.length === 0) {
@@ -118,7 +118,7 @@ export class MinecraftJarLoader {
             return null;
         }
 
-        // 優先順位が高いものから検索 (配列の最後から)
+        // Search from highest priority (from the end of the array)
         for (let i = this.loadedZips.length - 1; i >= 0; i--) {
             const { zip } = this.loadedZips[i];
             const entry = zip.file(path);
@@ -130,16 +130,16 @@ export class MinecraftJarLoader {
                 }
             }
         }
-        return null; // どのZIPにも見つからなかった場合
+        return null; // Not found in any ZIP
     }
 
     /**
-     * ロードされたJARファイル内に存在するブロック状態ファイル名（例: "stone", "oak_log"）のリストを取得します。
-     * これらは通常 "assets/minecraft/blockstates/*.json" にあります。
-     * 将来的には、選択されたnamespaceに基づいてフィルタリングすることも可能です。
-     * 複数のZIPファイルから重複なく収集します。
-     * @param {string} [namespace="minecraft"] - フィルタリングする名前空間ID (例: "minecraft", "mymod")
-     * @returns {Array<string>} ブロック状態ファイル名のソート済みリスト
+     * Retrieves a list of block state file names (e.g., "stone", "oak_log") present within the loaded JAR files.
+     * These are typically located at "assets/minecraft/blockstates/*.json".
+     * In the future, it might be possible to filter based on a selected namespace.
+     * Collects unique names from multiple ZIP files.
+     * @param {string} [namespace="minecraft"] - The namespace ID to filter by (e.g., "minecraft", "mymod")
+     * @returns {Array<string>} A sorted list of block state file names
      */
     public getBlockstateNames(namespace = "minecraft"): Array<string> {
         const blockstateNames = new Set<string>();
@@ -148,7 +148,7 @@ export class MinecraftJarLoader {
         }
 
         const prefix = `assets/${namespace}/blockstates/`;
-        // すべてのZIPファイルを走査してブロック状態名を集める
+        // Iterate through all ZIP files to collect block state names
         this.loadedZips.forEach(({ zip }) => {
             zip.forEach( relativePath => {
                 if (relativePath.startsWith(prefix) && relativePath.endsWith('.json')) {
@@ -162,10 +162,10 @@ export class MinecraftJarLoader {
     }
 
     /**
-     * ロードされたJARファイル内に存在するユニークな名前空間ID (namespace_id) のリストを取得します。
-     * 例: "minecraft", "mymod", "another_mod"
-     * 複数のZIPファイルから重複なく収集します。
-     * @returns {Array<string>} 利用可能な名前空間IDのソート済みリスト
+     * Retrieves a list of unique namespace IDs (namespace_id) present within the loaded JAR files.
+     * Examples: "minecraft", "mymod", "another_mod"
+     * Collects unique names from multiple ZIP files.
+     * @returns {Array<string>} A sorted list of available namespace IDs
      */
     public getAvailableNamespaces(): Array<string> {
         const namespaces = new Set<string>();
@@ -187,7 +187,7 @@ export class MinecraftJarLoader {
             });
         });
 
-        // "minecraft" を常にリストの先頭に持ってくる場合
+        // If "minecraft" should always be at the beginning of the list
         const sortedNamespaces = Array.from(namespaces).sort((a, b) => {
             if (a === "minecraft") return -1;
             if (b === "minecraft") return 1;
@@ -197,39 +197,39 @@ export class MinecraftJarLoader {
     }
     
     /**
-     * ロードされているZIPファイルのIDリストを、現在の優先順位で取得します。
-     * リストの最後が最も優先度が高いファイルです。
-     * @returns {string[]} ロードされているZIPファイルのIDの配列
+     * Retrieves the list of loaded ZIP file IDs in their current priority order.
+     * The last ID in the list represents the highest priority file.
+     * @returns {string[]} An array of loaded ZIP file IDs
      */
     public getLoadedZipIds(): string[] {
         return this.loadedZips.map(lz => lz.id);
     }
 
     /**
-     * ロードされているZIPファイルの優先順位を再編成します。
-     * 指定されたIDの順序に従って、ZIPファイルの検索順序を決定します。
-     * リストの最後にあるIDのZIPファイルが最も優先されます。
-     * @param {string[]} orderedIds - 新しい優先順位で並べられたZIPファイルのIDの配列
-     * @throws {Error} 存在しないIDが含まれている場合、または全てのロード済みZIPがリストに含まれていない場合
+     * Reorganizes the priority of loaded ZIP files.
+     * The search order for ZIP files will follow the specified order of IDs.
+     * The ZIP file with the ID at the end of the list will have the highest priority.
+     * @param {string[]} orderedIds - An array of ZIP file IDs ordered by new priority
+     * @throws {Error} If an ID in the list does not exist, or if not all currently loaded ZIPs are included in the list
      */
     public reorderZips(orderedIds: string[]): void {
         const newOrderedZips: LoadedZip[] = [];
         const existingIdMap = new Map<string, LoadedZip>(this.loadedZips.map(lz => [lz.id, lz]));
         const currentLoadedIds = new Set(this.loadedZips.map(lz => lz.id));
 
-        // 新しい順序に含まれないが既存のZIPが存在しないかチェック
+        // Check for existing ZIPs that are not included in the new order
         const missingInNewOrder = orderedIds.filter(id => !existingIdMap.has(id));
         if (missingInNewOrder.length > 0) {
             throw new Error(`[MinecraftJarLoader] reorderZips: Specified IDs not found in loaded ZIPs: ${missingInNewOrder.join(', ')}`);
         }
 
-        // 現在ロードされているが新しい順序に含まれていないZIPがないかチェック（警告）
+        // Check for currently loaded ZIPs that are not included in the new order (warning)
         const excludedFromNewOrder = Array.from(currentLoadedIds).filter(id => !orderedIds.includes(id));
         if (excludedFromNewOrder.length > 0) {
              console.warn(`[MinecraftJarLoader] reorderZips: Some currently loaded ZIPs are not in the new order and will be excluded: ${excludedFromNewOrder.join(', ')}`);
         }
 
-        // 新しい順序に従ってZIPファイルを再構築
+        // Reconstruct the ZIP files according to the new order
         for (const id of orderedIds) {
             const foundZip = existingIdMap.get(id);
             if (foundZip) {

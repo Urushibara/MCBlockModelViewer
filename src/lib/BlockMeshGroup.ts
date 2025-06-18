@@ -1,5 +1,4 @@
 // BlockMeshGroup.js
-
 import * as THREE from 'three';
 import { BlockModelLoader } from './BlockModelLoader';
 import { MCTextureLoader } from './MCTextureLoader';
@@ -18,25 +17,24 @@ export interface BlockMeshGroupParameter {
 
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
-// フォールバック用の白いマテリアル (テクスチャがないモデル用)
+// Fallback white material (for models without textures)
 const FALLBACK_MATERIAL_CUBE = new THREE.MeshLambertMaterial({ color: 0xFF00FF });
 
 export class BlockMeshGroup extends THREE.Group {
     _modelLoader:BlockModelLoader;
-    _textureLoader:MCTextureLoader; // MCTextureLoader のインスタンス
+    _textureLoader:MCTextureLoader; // Instance of MCTextureLoader
     _isFallbackTexLoaded = false;
     _blockName: string;
     public isAnimate = false;
     public exporter = new APNGExporter();
 
-    // キャッシュ
-    _modelCache = new Map();     // モデルパス -> ロード済みかつ解決済みモデルデータ
-    // _textureMapCache は削除します。テクスチャのキャッシュは MCTextureLoader が行います。
+    // Cache
+    _modelCache = new Map();     // Model path -> Loaded and resolved model data
 
     /**
-     * @param {object} options - オプションオブジェクト
-     * @param {BlockModelLoader} options.modelLoader - BlockModelLoader のインスタンス
-     * @param {MCTextureLoader} options.textureLoader - MCTextureLoader のインスタンス
+     * @param {object} options - Options object
+     * @param {BlockModelLoader} options.modelLoader - Instance of BlockModelLoader
+     * @param {MCTextureLoader} options.textureLoader - Instance of MCTextureLoader
      */
     constructor({ blockName, modelLoader, textureLoader }: BlockMeshGroupParameter) {
         super();
@@ -44,20 +42,20 @@ export class BlockMeshGroup extends THREE.Group {
             throw new Error("BlockMeshGroup requires modelLoader and textureLoader instances.");
         }
         this._modelLoader = modelLoader;
-        this._textureLoader = textureLoader; // MCTextureLoader インスタンスを保持
+        this._textureLoader = textureLoader; // Retain MCTextureLoader instance
         this._blockName = blockName;
     }
 
     /**
-     * 複数のモデル定義に基づいて、対応するモデルデータとテクスチャを事前にロード・準備します。
-     * これは、BlockStateManager.getActiveModels から返されるリストを受け取ります。
-     * @param {Array<object>} modelDefs - 各モデル定義
+     * Preloads and prepares corresponding model data and textures based on multiple model definitions.
+     * This accepts the list returned from BlockStateManager.getActiveModels.
+     * @param {Array<object>} modelDefs - Each model definition
      * @returns {Promise<boolean>}
      */
     async prepare(modelDefs:IBlockOption[], blockName:string):Promise< boolean > {
         if (!this._isFallbackTexLoaded) {
             FALLBACK_MATERIAL_CUBE.map = await this._textureLoader.getMissingTexture();
-            FALLBACK_MATERIAL_CUBE.needsUpdate = true; // マップの更新を通知
+            FALLBACK_MATERIAL_CUBE.needsUpdate = true; // Notify map update
             this._isFallbackTexLoaded = true;
         }
         this._blockName = blockName;
@@ -76,31 +74,31 @@ export class BlockMeshGroup extends THREE.Group {
     }
 
     /**
-     * 単一のモデル参照に対してモデルデータと関連するテクスチャをロードし、キャッシュします。
-     * テクスチャ自体のキャッシュは MCTextureLoader が行います。
+     * Loads and caches model data and associated textures for a single model reference.
+     * Texture caching itself is handled by MCTextureLoader.
      * @private
-     * @param {string} modelRef - モデルの参照文字列 (例: "minecraft:block/stone")
+     * @param {string} modelRef - Model reference string (e.g., "minecraft:block/stone")
      * @returns {Promise<void>}
      */
     async _prepareModelAndTextures(modelRef:string):Promise< void > {
         if (this._modelCache.has(modelRef) && this._modelCache.get(modelRef) !== null) {
-            return; // 既に成功裏に準備済みなら何もしない
+            return; // Do nothing if already successfully prepared
         }
 
         try {
-            // 1. モデルデータのロードとキャッシュ
+            // 1. Load and cache model data
             const modelData = await this._modelLoader.loadModel(modelRef);
             if (!modelData) {
                 throw new Error(`[BlockMeshGroup] Model data not found or failed to load for ${modelRef}`);
             }
             this._modelCache.set(modelRef, modelData);
 
-            // 2. 関連テクスチャのロード (MCTextureLoaderがキャッシュを管理)
+            // 2. Load associated textures (MCTextureLoader manages caching)
             if (modelData.textures) {
                 const textureLoadPromises:Promise<MCTextures>[] = [];
                 for (const textureName in modelData.textures) {
                     const textureRef = modelData.textures[textureName];
-                    // MCTextureLoader にロードを依頼。MCTextureLoader自身がキャッシュしている。
+                    // Request loading from MCTextureLoader. MCTextureLoader itself caches.
                     textureLoadPromises.push(this._textureLoader.loadTexture(textureRef, `#${textureName}`));
                 }
                 await Promise.all(textureLoadPromises);
@@ -111,28 +109,28 @@ export class BlockMeshGroup extends THREE.Group {
 
         } catch (error) {
             console.error(`[BlockMeshGroup] Error preparing model '${modelRef}':`, error);
-            this._modelCache.set(modelRef, null); // 失敗したモデルはnullでキャッシュし、再試行を防ぐ
+            this._modelCache.set(modelRef, null); // Cache failed models as null to prevent retries
             throw error;
         }
     }
 
 
     /**
-     * 準備されたモデルをシーンに追加し、表示を更新します。
-     * 古いメッシュは削除されます。
-     * @param {Array<object>} modelDefs - BlockStateManager.getActiveModels から返されるモデル定義のリスト
+     * Adds prepared models to the scene and updates the display.
+     * Old meshes are removed.
+     * @param {Array<object>} modelDefs - List of model definitions returned from BlockStateManager.getActiveModels
      */
     async show(modelDefs:IBlockOption[]):Promise< void > {
-        // 現在表示されている全ての子メッシュを削除し、Three.jsのリソースを解放
+        // Remove all currently displayed child meshes and free Three.js resources
         (this as THREE.Group).children.forEach(child => {
             if (child instanceof MCElementMesh) {
-                child.dispose(); // MCElementMesh の dispose を呼び出す
-            } else if (child.isMesh) { // フォールバックキューブなど
+                child.dispose(); // Call MCElementMesh's dispose
+            } else if (child.isMesh) { // Fallback cube, etc.
                 if (child.geometry) child.geometry.dispose();
                 if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
             }
         });
-        (this as THREE.Group).clear(); // THREE.Group の全ての子オブジェクトを削除
+        (this as THREE.Group).clear(); // Remove all child objects from THREE.Group
 
         if (!modelDefs || modelDefs.length === 0) {
             this._addFallbackCube();
@@ -146,7 +144,7 @@ export class BlockMeshGroup extends THREE.Group {
 
             if (!modelData) {
                 this._addFallbackCube();
-                const message = `Model data not prepared for '${modelRef}'. Showing fallback cube.`;
+                const message = `Model data not prepared for '${modelRef}'. Showing fallback cube.`
                 console.warn("[BlockMeshGroup] " + message);
                 throw new Error(message);
             }
@@ -156,18 +154,18 @@ export class BlockMeshGroup extends THREE.Group {
                     console.log(toRaw(modelData.elements));
                 }
 
-                // MCElementMesh が必要とするテクスチャマップを構築
+                // Construct the texture map required by MCElementMesh
                 const texturesForMCElementMesh = {};
                 if (modelData.textures) {
                     for (const textureName in modelData.textures) {
                         const textureRefPath = modelData.textures[textureName];
-                        // MCTextureLoader から直接取得（MCTextureLoader がキャッシュしていればそれが返される）
+                        // Get directly from MCTextureLoader (if MCTextureLoader caches it, it will be returned)
                         texturesForMCElementMesh[`#${textureName}`] = await this._textureLoader.loadTexture(textureRefPath, `#${textureName}`);
-                        // もし getTexture が null を返す可能性があるなら、フォールバックを追加
+                        // If getTexture might return null, implement a fallback here
                         if (!texturesForMCElementMesh[`#${textureName}`]) {
                             console.warn(`[BlockMeshGroup] Texture '${textureRefPath}' not found in MCTextureLoader cache.`);
-                            // ダミーのテクスチャや白いテクスチャなどを渡す必要がある場合はここに実装
-                            // 現状は MCElementMesh 側で material が見つからない場合の警告があるのでOK
+                            // If a dummy texture or white texture needs to be passed, implement it here
+                            // Currently, there's a warning on the MCElementMesh side if a material isn't found, so it's OK.
                         }
                     }
                 }
@@ -175,12 +173,12 @@ export class BlockMeshGroup extends THREE.Group {
                 const blockstate = Object.assign({}, modelDef);
                 if (blockstate.model) blockstate.model = "";
 
-                // モデル内の各要素 (element) を MCElementMesh として作成・追加
+                // Create and add each element in the model as an MCElementMesh
                 modelData.elements.forEach(element => {
                     const elementMesh = new MCElementMesh(
-                        element,             // element データ
-                        texturesForMCElementMesh, // ロード済みテクスチャのマップ
-                        blockstate,           // blockstate データ (x, y, uvlockなどを含む)
+                        element,                  // element data
+                        texturesForMCElementMesh, // Map of loaded textures
+                        blockstate,               // blockstate data (including x, y, uvlock, etc.)
                         this._blockName
                     );
                     (this as THREE.Group).add(elementMesh);
@@ -201,7 +199,7 @@ export class BlockMeshGroup extends THREE.Group {
     }
 
     /**
-     * ロード失敗時やモデルデータがない場合に表示するフォールバック用のキューブを追加します。
+     * Adds a fallback cube to display when loading fails or model data is unavailable.
      * @private
      */
     private _addFallbackCube():void {
@@ -257,8 +255,8 @@ export class BlockMeshGroup extends THREE.Group {
     }
 
     /**
-     * このグループ内の全てのメッシュとキャッシュされたリソースを解放します。
-     * テクスチャの解放は MCTextureLoader が行います。
+     * Disposes all meshes and cached resources within this group.
+     * Texture disposal is handled by MCTextureLoader.
      */
     dispose() {
         (this as THREE.Group).children.forEach(child => {
@@ -272,7 +270,7 @@ export class BlockMeshGroup extends THREE.Group {
         (this as THREE.Group).clear();
 
         this._modelCache.clear();
-        // this._textureMapCache.clear(); // ここは不要。MCTextureLoader の責任。
+        // this._textureMapCache.clear(); // This is not needed. It's MCTextureLoader's responsibility.
 
         console.log("[BlockMeshGroup] Disposed all meshes and cleared caches.");
     }

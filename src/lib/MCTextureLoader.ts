@@ -9,52 +9,51 @@ export interface MCTextures {
 }
 
 /**
- * テクスチャのuserDataに格納されるアニメーション情報のインターフェース
+ * Interface for animation information stored in texture userData
  */
 export interface TextureUserData {
     texture_id: string,
     texture_name: string,
     texture_path: string,
-    animationDuration: number, // 合計ティック数 (1ティック = 50ミリ秒)
-    totalFrames: number,       // 総フレーム数
-    interpolate: boolean,      // クロスフェードのフラグ
-    frames: (number | Frame)[] // フレーム配列
+    animationDuration: number, // Total ticks (1 tick = 50 milliseconds)
+    totalFrames: number,       // Total number of frames
+    interpolate: boolean,      // Cross-fade flag
+    frames: (number | Frame)[] // Array of frames
 };
 
 export interface Frame { index: number, time: number };
 
 export class MCTextureLoader {
-    // プライベートフィールドから通常のプロパティに変更
     static _cachedMissingTexture = null;
-    private _jarLoader: MinecraftJarLoader; // MinecraftJarLoader のインスタンスを保持
-    public textures = new Map<string, MCTextures>(); // ロード済みのテクスチャをキャッシュ
+    private _jarLoader: MinecraftJarLoader;
+    public textures = new Map<string, MCTextures>();
 
     /**
-     * @param {MinecraftJarLoader} jarLoader - MinecraftJarLoader のインスタンス
+     * @param {MinecraftJarLoader} jarLoader - Instance of MinecraftJarLoader
      */
     constructor(jarLoader: MinecraftJarLoader) {
         this._jarLoader = jarLoader;
     }
 
     /**
-     * Minecraftのモデル参照における名前空間を分割します。
-     * 例: "minecraft:block/stone" -> ["minecraft", "block/stone"]
-     * "block/stone" -> ["minecraft", "block/stone"] (デフォルト名前空間を使用)
+     * Splits the namespace in Minecraft model references.
+     * Example: "minecraft:block/stone" -> ["minecraft", "block/stone"]
+     * "block/stone" -> ["minecraft", "block/stone"] (uses default namespace)
      * @private
-     * @param {string} ref - テクスチャ参照文字列 (例: "block/stone", "minecraft:block/cube_all")
-     * @param {string} [defaultNamespace="minecraft"] - 名前空間が指定されていない場合のデフォルト
-     * @returns {[string, string]} [名前空間, 相対パス] のタプル
+     * @param {string} ref - Texture reference string (e.g., "block/stone", "minecraft:block/cube_all")
+     * @param {string} [defaultNamespace="minecraft"] - Default namespace if not specified
+     * @returns {[string, string]} Tuple of [namespace, relative path]
      */
     private _splitNamespace(ref: string, defaultNamespace: string = "minecraft"): string[] {
         return ref.includes(":") ? ref.split(":") : [defaultNamespace, ref];
     }
 
     /**
-     * 指定されたパスからMinecraftテクスチャをロードし、THREE.Textureオブジェクトを返します。
-     * @param {string} textureRef - テクスチャの参照 (例: "block/stone", "minecraft:block/cube_all")
-     * model.jsonの"textures"フィールドの値と、それに対応するasset path形式
-     * @param {string} [textureId=null] - model.element.uv.textureから参照する為のID (例: "#texture")
-     * @returns {Promise<MCTextures>} ロードされた MCTextures オブジェクトのPromise
+     * Loads a Minecraft texture from the specified path and returns a THREE.Texture object.
+     * @param {string} textureRef - Texture reference (e.g., "block/stone", "minecraft:block/cube_all")
+     * Corresponds to the "textures" field value in model.json and its asset path format
+     * @param {string} [textureId=null] - ID for referencing from model.element.uv.texture (e.g., "#texture")
+     * @returns {Promise<MCTextures>} Promise of the loaded MCTextures object
      */
     public async loadTexture(textureRef: string, textureId: string | null): Promise< MCTextures > {
         const key = textureId ? `${textureId}@${textureRef}` : textureRef;
@@ -63,38 +62,38 @@ export class MCTextureLoader {
             if (texture) return texture;
         }
 
-        // テクスチャ参照から名前空間と相対パスを分離
+        // Separate namespace and relative path from texture reference
         const [namespace, relPath] = this._splitNamespace(textureRef);
-        // JAR内のフルパスを構築
+        // Construct full path within the JAR
         const fullTexturePath = `assets/${namespace}/textures/${relPath}.png`;
 
         try {
-            // jarLoader.getFile を使ってPNGのUint8Arrayデータを取得
+            // Get PNG Uint8Array data using jarLoader.getFile
             const pngData = await this._jarLoader.getFile(fullTexturePath);
 
             if (!pngData) {
-                // ファイルが見つからない、または内容が空の場合
+                // If file not found or content is empty
                 throw new Error(`Texture PNG data empty or not found in JAR: ${fullTexturePath}`);
             }
 
-            // Uint8ArrayからBlobを作成し、createImageBitmapでImageBitmapに変換
+            // Create Blob from Uint8Array, then convert to ImageBitmap with createImageBitmap
             const blob = new Blob([pngData], { type: 'image/png' });
             const image = await createImageBitmap(blob, { imageOrientation: "flipY" });
 
-            // チャンネル分離（アニメーションテクスチャなどに対応するため）
+            // Channel separation (for animated textures, etc.)
             const textureChannels = await this._splitImageChannels(image);
 
-            // THREE.Texture の作成
+            // Create THREE.Texture
             const tex = new THREE.Texture(textureChannels.color);
-            tex.minFilter = THREE.NearestFilter; // Minecraftらしいピクセル感を出す
-            tex.magFilter = THREE.NearestFilter; // Minecraftらしいピクセル感を出す
+            tex.minFilter = THREE.NearestFilter;
+            tex.magFilter = THREE.NearestFilter;
             tex.colorSpace = THREE.SRGBColorSpace;
             tex.flipY = false;
             tex.needsUpdate = true;
 
             const mctex: MCTextures = { map: tex, transparent: false };
 
-            // アルファマップの適用
+            // Apply alpha map
             if (textureChannels.alpha) {
                 mctex.alphaMap = new THREE.Texture(textureChannels.alpha);
                 mctex.alphaMap.minFilter = THREE.NearestFilter;
@@ -102,47 +101,47 @@ export class MCTextureLoader {
                 mctex.alphaMap.colorSpace = THREE.SRGBColorSpace;
                 mctex.alphaMap.flipY = false;
                 mctex.alphaMap.needsUpdate = true;
-                mctex.transparent = true; // アルファマップがある場合は透過を有効にする
+                mctex.transparent = true; // Enable transparency if alpha map exists
             } else {
                 mctex.transparent = false;
             }
 
-            // テクスチャのメタデータ (mc.mcmeta) をチェックし、アニメーション情報を設定
-            await this._checkAnimate(textureRef, textureId, tex);
+            // Check texture metadata (mc.mcmeta) and set animation information
+            await this._checkAnimate(tex, textureRef, textureId);
 
-            this.textures.set(key, mctex); // キャッシュに追加
+            this.textures.set(key, mctex); // Add to cache
             return mctex;
 
         } catch (e) {
-            // ロード失敗時は警告を出して、MISSING_TEXTUREを返す
+            // On load failure, warn and return MISSING_TEXTURE
             console.warn(`[MCTextureLoader] Failed to load texture '${textureRef}', using fallback. Error:`, e);
             const fallbackTex = this.getMissingTexture();
             const mctex: MCTextures = { map: fallbackTex, transparent: false };
-            this.textures.set(key, mctex); // フォールバックもキャッシュする
+            this.textures.set(key, mctex); // Cache the fallback as well
             return mctex;
         }
     }
 
     /**
-     * テクスチャの.mcmetaファイルをチェックし、アニメーション情報を設定します。
+     * Checks the texture's .mcmeta file and sets animation information.
      * @private
-     * @param {string} textureRef - テクスチャ参照 (例: "minecraft:block/stone")
-     * @param {string} textureId - model.element.uv.textureから参照する為のID (例: "#texture")
-     * @param {THREE.Texture} texture - 設定対象のTHREE.Textureオブジェクト
+     * @param {THREE.Texture} texture - THREE.Texture object to configure
+     * @param {string} textureRef - Texture reference (e.g., "minecraft:block/stone")
+     * @param {string} textureId - ID for referencing from model.element.uv.texture (e.g., "#texture")
      */
-    private async _checkAnimate(textureRef: string, textureId: string | null, texture: THREE.Texture) {
+    private async _checkAnimate(texture: THREE.Texture, textureRef: string, textureId: string | null) {
         try {
-            // .mcmetaファイルパスを構築 (テクスチャパスと同様に名前空間を考慮)
+            // Construct .mcmeta file path (considering namespace like texture paths)
             const [namespace, relPath] = this._splitNamespace(textureRef);
             const mcmetaPath = `assets/${namespace}/textures/${relPath}.png.mcmeta`;
 
-            // jarLoader.getText を使ってテキストコンテンツを取得
+            // Get text content using jarLoader.getText
             const mcmetaText = await this._jarLoader.getText(mcmetaPath);
 
             texture.userData = {
-                texture_id: textureId,  // (例: "#texture")
-                texture_name: textureRef, // (例: "block/stone")
-                texture_path: mcmetaPath.replace(/\.mcmeta$/, ''), // .png.mcmetaから.pngに戻す
+                texture_id: textureId,  // (e.g., "#texture")
+                texture_name: textureRef, // (e.g., "block/stone")
+                texture_path: mcmetaPath.replace(/\.mcmeta$/, ''), // Convert from .png.mcmeta to .png
             };
 
             if (mcmetaText) {
@@ -158,7 +157,7 @@ export class MCTextureLoader {
                 const fallbackFrametime = anim.frametime ? anim.frametime : 1;
                 const fallbackFrames = anim.frames && Array.isArray(anim.frames) ? anim.frames : Array.from({ length: fallbackFrameCount }, (_, i) => i);
 
-                // フレームの総合再生時間を計算
+                // Calculate total playback duration of frames
                 let playlength = 0;
                 fallbackFrames.forEach( (frame: number | { index: number, time: number }) => {
                     if (typeof frame === 'number' || (typeof frame === 'object' && !frame.time)) {
@@ -170,19 +169,19 @@ export class MCTextureLoader {
                     }
                 });
 
-                // アニメーション情報があれば userData に保存
+                // If animation info exists, save to userData
                 (texture.userData as TextureUserData) = Object.assign(texture.userData, {
-                    animationDuration: playlength, //総再生時間 レンダラーが参照
-                    totalFrames: anim.frames ? anim.frames.length : fallbackFrameCount, // フレーム数
-                    interpolate: anim.interpolate || false, // クロスフェーディングのフラグ
-                    frames: fallbackFrames // フレーム配列自体も保存
+                    animationDuration: playlength, // Total playback time, referenced by renderer
+                    totalFrames: anim.frames ? anim.frames.length : fallbackFrameCount, // Number of frames
+                    interpolate: anim.interpolate || false, // Cross-fading flag
+                    frames: fallbackFrames // Store the frame array itself
                 }) as TextureUserData;
                 //console.log(`[MCTextureLoader] Animated texture detected. ${textureRef}`);
             }
         } catch (error) {
             if (error instanceof Error){
-                // .mcmetaファイルがない、またはパースエラーは警告に留める
-                // すべてのテクスチャに.mcmetaがあるわけではないため、エラーとして扱わない
+                // Treat missing or parse errors for .mcmeta files as warnings only
+                // Not all textures have .mcmeta, so don't treat as an error
                 console.warn(`[MCTextureLoader] Could not load or parse .mcmeta for ${textureRef}:`, error.message);
             } else {
                 console.warn(`[MCTextureLoader] Unknown error occurred on load or parse .mcmeta for ${textureRef}.`);
@@ -191,11 +190,11 @@ export class MCTextureLoader {
     }
 
     /**
-     * 画像をRGBAチャンネルに分離します (主にアルファマップ抽出用)。
-     * Minecraftのテクスチャは、アルファチャンネルが独立したテクスチャとして扱われることがあるため。
+     * Splits an image into RGBA channels (primarily for alpha map extraction).
+     * This is because Minecraft textures sometimes treat the alpha channel as a separate texture.
      * @private
-     * @param {ImageBitmap} image - 入力画像
-     * @returns {{color: ImageBitmap, alpha: ImageBitmap | null}} カラーチャンネルとアルファチャンネルのImageBitmap
+     * @param {ImageBitmap} image - Input image
+     * @returns {{color: ImageBitmap, alpha: ImageBitmap | null}} ImageBitmaps for color and alpha channels
      */
     private async _splitImageChannels(image: ImageBitmap): Promise<{ color: ImageBitmap, alpha: ImageBitmap | null }> {
         const width = image.width;
@@ -213,34 +212,29 @@ export class MCTextureLoader {
         const imageData = ctx.getImageData(0, 0, width, height);
         const data = imageData.data;
 
-        // アルファチャンネルを抽出するためのImageDataを準備
         let hasAlpha = false;
-        const alphaData = new Uint8ClampedArray(width * height * 4); // RGBA形式
+        const alphaData = new Uint8ClampedArray(width * height * 4);
 
         for (let i = 0; i < data.length; i += 4) {
             const alpha = data[i + 3] / 255;
-            const boostedAlpha = 1 - Math.pow(1 - alpha, 2); // 二重に見せる不透明度
+            const boostedAlpha = 1 - Math.pow(1 - alpha, 2);
             const finalAlphaValue = Math.round(boostedAlpha * 255);
 
-            // アルファチャンネル用のデータを設定 (R, G, B に元のアルファ値をコピー)
-            alphaData[i] = finalAlphaValue; // R
+            alphaData[i    ] = finalAlphaValue; // R
             alphaData[i + 1] = finalAlphaValue; // G
             alphaData[i + 2] = finalAlphaValue; // B
-            alphaData[i + 3] = 255;         // A (アルファマップ自身のアルファは常に255)
+            alphaData[i + 3] = 255;             // A
 
-            if (data[i + 3] < 255) { // 元の画像に透明度があればhasAlphaをtrueに
+            if (data[i + 3] < 255) {
                 hasAlpha = true;
             }
 
-            // 元の画像のRGBをカラーチャンネルにコピー
-            data[i + 3] = 255; // カラーチャンネルのアルファは常に255に設定
+            data[i + 3] = 255; // The alpha of the image map is always 255 (opaque).
         }
 
         const colorImage = new ImageData(data, width, height);
         const alphaImage = hasAlpha ? new ImageData(alphaData, width, height) : null;
 
-        // ImageDataからImageBitmapを生成し直す
-        // createImageBitmap は Promise を返す
         return {
             color: await createImageBitmap(colorImage),
             alpha: alphaImage ? await createImageBitmap(alphaImage) : null
@@ -248,15 +242,15 @@ export class MCTextureLoader {
     }
 
     /**
-     * ロード失敗時や見つからない場合に表示する2x2のMISSING_TEXTUREを生成または取得します。
-     * @returns {THREE.Texture} MISSING_TEXTUREのTHREE.Textureオブジェクト
+     * Generates or retrieves a 2x2 MISSING_TEXTURE for display on load failure or when not found.
+     * @returns {THREE.Texture} THREE.Texture object for MISSING_TEXTURE
      */
     public getMissingTexture(): THREE.Texture {
         if (MCTextureLoader._cachedMissingTexture) {
             return MCTextureLoader._cachedMissingTexture;
         }
 
-        // 2x2のマゼンタと黒の市松模様テクスチャ
+        // 2x2 magenta and black checkerboard texture
         const pixels = new Uint8ClampedArray([
             0x00, 0x00, 0x00, 0xFF, // Black
             0xFF, 0x00, 0xFF, 0xFF, // Magenta
@@ -264,7 +258,7 @@ export class MCTextureLoader {
             0x00, 0x00, 0x00, 0xFF, // Black
         ]);
         const canvas = document.createElement("canvas");
-        canvas.width = 2; // 2x2ピクセル
+        canvas.width = 2; // 2x2 pixels
         canvas.height = 2;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("[MCTextureLoader] Failed to get context from image.");
@@ -272,10 +266,10 @@ export class MCTextureLoader {
         ctx.putImageData(imgdata, 0, 0);
 
         const texture = new THREE.CanvasTexture(canvas);
-        texture.minFilter = THREE.NearestFilter; // ピクセル感を維持
-        texture.magFilter = THREE.NearestFilter; // ピクセル感を維持
-        texture.wrapS = THREE.MirroredRepeatWrapping; // 繰り返し
-        texture.wrapT = THREE.MirroredRepeatWrapping; // 繰り返し
+        texture.minFilter = THREE.NearestFilter; // Maintain pixelated look
+        texture.magFilter = THREE.NearestFilter; // Maintain pixelated look
+        texture.wrapS = THREE.MirroredRepeatWrapping; // Repeat
+        texture.wrapT = THREE.MirroredRepeatWrapping; // Repeat
         texture.needsUpdate = true;
 
         MCTextureLoader._cachedMissingTexture = texture;
@@ -283,10 +277,10 @@ export class MCTextureLoader {
     }
 
     /**
-     * ロード済みの全てのテクスチャキャッシュをクリアします。
+     * Clears all loaded texture caches.
      */
     public clearCache() {
-        this.textures.forEach(tex => { tex.map.dispose(); tex.alphaMap?.dispose(); }); // THREE.Textureのリソースを解放
+        this.textures.forEach(tex => { tex.map.dispose(); tex.alphaMap?.dispose(); }); // Dispose THREE.Texture resources
         this.textures.clear();
         console.log("[MCTextureLoader] Texture cache cleared.");
     }

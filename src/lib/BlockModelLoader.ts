@@ -61,7 +61,7 @@ export class BlockModelLoader {
      */
     async _loadModelRecursive(modelRef:string, fromNamespace:string = "minecraft"):Promise< MCModel > {
         const [namespace, relPath] = this._splitNamespace(modelRef, fromNamespace);
-        const fullPath = `assets/${namespace}/models/${relPath}.json`;
+        let fullPath = `assets/${namespace}/models/${relPath}.json`;
 
         // 再帰呼び出し中の循環参照や重複ロードを防ぐための簡易キャッシュ
         // グローバルな _modelCache とは別に、今回のロードチェーンでのみ有効
@@ -69,7 +69,21 @@ export class BlockModelLoader {
             return this._modelCache.get(fullPath)!;
         }
 
-        const modelData:MCModel = await this._readJSON(fullPath);
+        let modelData:MCModel;
+        try {
+            modelData = await this._readJSON(fullPath);
+        } catch (error) {
+            if (relPath.indexOf('/') == -1){
+                fullPath = `assets/${namespace}/models/block/${relPath}.json`; // 古いバージョン用
+                if (this._modelCache.has(fullPath)) {
+                    return this._modelCache.get(fullPath)!;
+                }
+                modelData = await this._readJSON(fullPath);
+            } else {
+                throw error;
+            }
+        }
+        
         let finalModelData:MCModel = { ...modelData }; // まずは現在のモデルデータをコピー
 
         // 親モデルがあれば、親モデルをロードし、現在のモデルデータを上書きマージする

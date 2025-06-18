@@ -17,28 +17,28 @@ const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 const renderCanvas = ref < HTMLCanvasElement | null > (null);
 
-// 主要クラスのインスタンス
+// Instances of main classes
 const jarLoader = new MinecraftJarLoader();
-const blockModelLoader = new BlockModelLoader(jarLoader); // jarLoaderを注入
-const textureLoader = new MCTextureLoader(jarLoader); // jarLoaderを注入
+const blockModelLoader = new BlockModelLoader(jarLoader); // Inject jarLoader
+const textureLoader = new MCTextureLoader(jarLoader); // Inject jarLoader
 const blockStateManager = new BlockStateManager();
 let blockMeshGroup: BlockMeshGroup | null = null;
 let renderManager: RenderManager;
 
-// UI連動用 リアクティブな状態
+// Reactive states for UI binding
 const selectedBlockName = ref < string | null > (null);
 const availableBlocks = ref < string[] > ([]);
 const availableNamespaces = ref < string[] > ([]);
 const selectedNamespace = ref < string > ('minecraft');
-const buttonDisabled = ref(false); // APNG保存用
-const progress = ref(0); // APNG保存用
+const buttonDisabled = ref(false); // For APNG saving
+const progress = ref(0); // For APNG saving
 
-// BlockStateManager が提供するUI生成用データ
+// UI generation data provided by BlockStateManager
 const possibleProperties = ref < IPossibleProperty > ({});
 const selectedProperties = ref < Record < string, string | null >> ({});
-const groupsToRender = ref < IBlockOption[] > ([]); // 最終的に BlockMeshGroup に渡すモデルの配列
+const groupsToRender = ref < IBlockOption[] > ([]); // Array of models ultimately passed to BlockMeshGroup
 
-// 各モデルグループの選択されたインデックスを管理するMap
+// Map to manage the selected index of each model group
 // Key: conditionKey (string), Value: selected model index (number)
 const selectedModelGroupIndices = ref < Map < string, number>> (new Map());
 
@@ -46,14 +46,14 @@ let lastLoaddedBlock: string = "";
 
 const useFallbackmodel = ref < boolean > (true);
 
-// ロードされているリソースパックの表示と並べ替え用
+// For displaying and reordering loaded resource packs
 interface LoadedResourcePackItem {
-    id: string; // MinecraftJarLoaderで使う内部ID
-    name: string; // UI表示用のファイル名
+    id: string; // Internal ID used by MinecraftJarLoader
+    name: string; // File name for UI display
 }
 const loadedResourcePacks = ref < LoadedResourcePackItem[] > ([]);
 
-// BlockStateManager から現在選択されているプロパティに基づいてモデルグループリストを取得
+// Get model group list based on currently selected properties from BlockStateManager
 const activeModelGroups = computed < IActiveModelGroup[] > (() => {
     if (!blockStateManager || !selectedBlockName.value) {
         return [];
@@ -62,20 +62,20 @@ const activeModelGroups = computed < IActiveModelGroup[] > (() => {
     return groups;
 });
 
-// RenderManager の初期化と THREE.js シーンへの追加
+// Initialize RenderManager and add to THREE.js scene
 onMounted(() => {
     if (renderCanvas.value) {
         renderManager = new RenderManager(renderCanvas.value);
     }
 });
 
-// Vanilla JARファイル変更時の処理
+// Handler for Vanilla JAR file change
 const onVanillaFileChange = async (event: Event) => {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
     try {
-        const baseName = file.name.replace(/\.zip$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_'); // ファイル名として使える文字に変換
+        const baseName = file.name.replace(/\.zip$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_'); // Convert to usable filename
         await jarLoader.addZipFile(file, `Minecraft ${baseName}`);
         $toast.open({ message: 'Vanilla JAR loaded.', type: 'success' });
         updateListsAndUI();
@@ -85,7 +85,7 @@ const onVanillaFileChange = async (event: Event) => {
     }
 };
 
-// リソースパックファイル変更時の処理 (複数選択対応)
+// Handler for resource pack file change (supports multiple selection)
 const onResourcePackFileChange = async (event: Event) => {
     const files = (event.target as HTMLInputElement).files;
     if (!files || files.length === 0) return;
@@ -94,9 +94,9 @@ const onResourcePackFileChange = async (event: Event) => {
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-            // ファイル名をベースにユニークなIDを生成
-            // 接頭辞 'rp_' を付け、拡張子を除去し、タイムスタンプとランダム文字列でユニークに
-            const baseName = file.name.replace(/\.zip$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_'); // ファイル名として使える文字に変換
+            // Generate a unique ID based on the filename
+            // Add 'rp_' prefix, remove extension, and make unique with timestamp + random string
+            const baseName = file.name.replace(/\.zip$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_'); // Convert to usable filename
             const id = `rp_${baseName}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
             await jarLoader.addZipFile(file, id);
             successfulLoads++;
@@ -108,21 +108,21 @@ const onResourcePackFileChange = async (event: Event) => {
     if (successfulLoads > 0) {
         $toast.open({ message: `${successfulLoads} resource pack(s) loaded.`, type: 'success' });
         updateListsAndUI();
-        // 削除されたZIPが現在表示中のブロックに影響を与える可能性があるので、ブロックを再ロード
+        // Reload the block if it's currently displayed, as removed ZIPs might affect it
         if (selectedBlockName.value && renderManager) {
             await loadAndSetBlockState();
         }
     }
 };
 
-// リソースパックを削除するメソッド
+// Method to remove a resource pack
 const removeResourcePack = async (id: string) => {
     try {
         jarLoader.unloadZipFile(id);
         $toast.open({ message: `Resource pack removed: ${id}`, type: 'info' });
-        updateListsAndUI(); // UIリストを更新
+        updateListsAndUI(); // Update UI list
 
-        // 削除されたZIPが現在表示中のブロックに影響を与える可能性があるので、ブロックを再ロード
+        // Reload the block if it's currently displayed, as removed ZIPs might affect it
         if (selectedBlockName.value && renderManager) {
             $toast.open({ message: 'Reloading block due to resource pack removal...', type: 'info', duration: 1500 });
             await loadAndSetBlockState();
@@ -133,26 +133,26 @@ const removeResourcePack = async (id: string) => {
     }
 };
 
-// UIリストと内部状態をまとめて更新する関数
+// Function to update UI lists and internal states collectively
 const updateListsAndUI = () => {
-    // jarLoaderのIDリストは優先度が低いものから順（配列の最初が優先度低い）
-    // UI表示では「上にあるものが優先度高い」としたいので、逆順にして表示する
+    // jarLoader's ID list is in order of lowest priority first (first element has lowest priority)
+    // For UI display, we want "highest priority at the top", so reverse and display
     const currentLoaderOrderIds = jarLoader.getLoadedZipIds();
     loadedResourcePacks.value = currentLoaderOrderIds.map(id => {
         let name = id;
         if (id.startsWith('rp_')) {
-            // 'rp_'プレフィックスと末尾のタイムスタンプ+ランダム文字列を除去
+            // Remove 'rp_' prefix and trailing timestamp + random string
             const parts = id.substring(3).split('_');
-            if (parts.length >= 3) { // 基本ファイル名 + タイムスタンプ + ランダム文字列
+            if (parts.length >= 3) { // Base filename + timestamp + random string
                 name = parts.slice(0, -2).join('_');
             } else {
                 name = parts.join('_');
             }
         }
         return { id: id, name: name };
-    }).reverse(); // UI表示のために優先度が高いものを先頭にする
+    }).reverse(); // Reverse for UI display (highest priority first)
 
-    // 名前空間とブロックリストの更新
+    // Update namespaces and block list
     availableNamespaces.value = jarLoader.getAvailableNamespaces();
     if (!availableNamespaces.value.includes(selectedNamespace.value) && availableNamespaces.value.length > 0) {
         selectedNamespace.value = availableNamespaces.value[0];
@@ -162,7 +162,7 @@ const updateListsAndUI = () => {
 
     availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
 
-    // デフォルトブロックの選択（初回またはnamespace変更時）
+    // Select default block (initial load or namespace change)
     const debug_target = isDebug ? "blue_banner" : "grass_block";
     if (!lastLoaddedBlock && availableBlocks.value.includes(debug_target)) {
         selectedBlockName.value = debug_target;
@@ -186,7 +186,7 @@ const updateListsAndUI = () => {
     }
 };
 
-// ロード済みリソースパックの順序変更（上へ移動）
+// Change order of loaded resource packs (move up)
 const moveResourcePackUp = (index: number) => {
     if (index > 0) {
         const itemToMove = loadedResourcePacks.value.splice(index, 1)[0];
@@ -195,7 +195,7 @@ const moveResourcePackUp = (index: number) => {
     }
 };
 
-// ロード済みリソースパックの順序変更（下へ移動）
+// Change order of loaded resource packs (move down)
 const moveResourcePackDown = (index: number) => {
     if (index < loadedResourcePacks.value.length - 1) {
         const itemToMove = loadedResourcePacks.value.splice(index, 1)[0];
@@ -204,17 +204,17 @@ const moveResourcePackDown = (index: number) => {
     }
 };
 
-// 新しいリソースパックの順序をMinecraftJarLoaderに適用し、表示を更新
+// Apply the new resource pack order to MinecraftJarLoader and update display
 const applyNewResourcePackOrder = async () => {
     try {
-        // UIでの表示順（loadedResourcePacks）は「上にあるものが優先度高い」
-        // jarLoader.reorderZipsは「最後の要素が最高優先度」を期待する
-        // そのため、UIのリストを逆順にして渡す
+        // UI display order (loadedResourcePacks) is "highest priority at the top"
+        // jarLoader.reorderZips expects "last element is highest priority"
+        // Therefore, reverse the UI list before passing it
         const loaderOrderIds = loadedResourcePacks.value.map(item => item.id).reverse();
         jarLoader.reorderZips(loaderOrderIds);
         $toast.open({ message: 'Resource pack order updated.', type: 'info' });
 
-        // リソースパックの順序が変わったので、現在表示中のブロックを再ロード
+        // Since resource pack order changed, reload the currently displayed block
         if (selectedBlockName.value && renderManager) {
             $toast.open({ message: 'Reloading block due to resource pack change...', type: 'info', duration: 1500 });
             await loadAndSetBlockState();
@@ -225,9 +225,9 @@ const applyNewResourcePackOrder = async () => {
     }
 };
 
-// selectedNamespace の変更を監視
+// Watch for changes in selectedNamespace
 watch(selectedNamespace, async (newNamespace) => {
-    // jarLoader.zip のチェックは不要、loadedZips の有無は内部でチェックされる
+    // No need to check jarLoader.zip, presence of loadedZips is checked internally
     availableBlocks.value = jarLoader.getBlockstateNames(newNamespace);
     if (availableBlocks.value.length > 0) {
         selectedBlockName.value = availableBlocks.value[0];
@@ -236,7 +236,7 @@ watch(selectedNamespace, async (newNamespace) => {
     }
 });
 
-// selectedBlockName の変更を監視
+// Watch for changes in selectedBlockName
 watch(selectedBlockName, async (newBlockName) => {
 
     if (newBlockName && renderManager) {
@@ -274,8 +274,8 @@ watch(useFallbackmodel, async (newVal) => {
 
 const onPropatyChange = () => {
     
-    const currentActiveGroups = activeModelGroups.value; // computedから取得
-    selectedModelGroupIndices.value.clear(); // まず既存の選択をクリア
+    const currentActiveGroups = activeModelGroups.value; // Get from computed
+    selectedModelGroupIndices.value.clear(); // First, clear existing selections
 
     for (const group of currentActiveGroups) {
         if (group.models.length > 0) {
@@ -292,7 +292,7 @@ const onPropatyChange = () => {
 }
 
 
-// 現在選択されているブロック状態とモデルをロードし、RenderManagerに設定する
+// Load and set the currently selected block state and models to RenderManager
 const loadAndSetBlockState = async () => {
     if (!selectedBlockName.value || !selectedNamespace.value || !renderManager) {
         return;
@@ -324,35 +324,35 @@ const loadAndSetBlockState = async () => {
         renderManager.addObject(blockMeshGroup);
     }
 
-    // 可能なプロパティを取得し、UIを更新
+    // Get possible properties and update UI
     possibleProperties.value = blockStateManager.getPossibleProperties();
-    // ここで新しいインデックス管理 Map を初期化する
+    // Initialize the new index management Map here
     selectedModelGroupIndices.value = new Map();
-    initializeSelectedProperties(); // UIの初期値を設定
+    initializeSelectedProperties(); // Set initial UI values
 
-    //await applyBlockState(); // 初期状態のモデルを表示 ブロック選択が監視されているので不要
+    // await applyBlockState(); // Display initial state model - not needed as block selection is watched
 };
 
-// possiblePropertiesに基づいてselectedPropertiesの初期値を設定するヘルパー関数
+// Helper function to set initial values for selectedProperties based on possibleProperties
 const initializeSelectedProperties = async () => {
 
     const newSelectedProps: Record<string, string | null> = {};
     const propNames = Object.keys(possibleProperties.value);
 
-    // Step 1: まず BlockStateManager が推奨するデフォルト値で selectedProperties を初期化
+    // Step 1: Initialize selectedProperties with default values recommended by BlockStateManager
     for (const propName of propNames) {
         const propData = possibleProperties.value[propName];
         newSelectedProps[propName] = propData.defaultValue;
     }
 
-    // BlockStateManager に現在のデフォルト値を一旦設定（内部キャッシュのため）
-    selectedProperties.value = { ...newSelectedProps }; // Vueのリアクティブオブジェクトに反映
+    // Set current default values to BlockStateManager (for internal cache)
+    selectedProperties.value = { ...newSelectedProps }; // Reflect in Vue reactive object
 
-    // Step 2: 現在のデフォルト値でモデルを取得し、表示されるモデルがあるかチェック
+    // Step 2: Get models with current default values and check if any models are displayed
     if (activeModelGroups.value.length === 0) {
         //console.log("Default properties resulted in no visible models. Attempting to adjust first property.");
 
-        // Step 3: 最初のプロパティを見つけて、デフォルト以外の値で試す
+        // Step 3: Find the first property and try a non-default value
         if (propNames.length > 0) {
             const firstPropName: string = propNames[0];
             const firstPropData: IPropertyOptions = possibleProperties.value[firstPropName];
@@ -371,11 +371,11 @@ const initializeSelectedProperties = async () => {
         }
     }
 
-    // 最終的な決定値を selectedProperties に反映
+    // Reflect final decided values in selectedProperties
     selectedProperties.value = newSelectedProps;
 
-    const currentActiveGroups = activeModelGroups.value; // computedから取得
-    selectedModelGroupIndices.value.clear(); // まず既存の選択をクリア
+    const currentActiveGroups = activeModelGroups.value; // Get from computed
+    selectedModelGroupIndices.value.clear(); // First, clear existing selections
 
     for (const group of currentActiveGroups) {
         if (group.models.length > 0) {
@@ -391,7 +391,7 @@ const initializeSelectedProperties = async () => {
     }
 };
 
-// 現在選択されているプロパティに基づいてモデルを更新する
+// Update models based on currently selected properties
 const applyBlockState = async () => {
     if (!blockStateManager || !blockMeshGroup) {
         return;
@@ -408,7 +408,7 @@ const applyBlockState = async () => {
                 groupsToRender.value.push(group.models[selectedIndexForGroup]);
             } else {
                 groupsToRender.value.push(group.models[0]);
-                selectedModelGroupIndices.value.set(group.conditionKey || '', 0); // UIもリセット
+                selectedModelGroupIndices.value.set(group.conditionKey || '', 0); // Also reset UI
                 $toast.open({ message: `Model index for condition '${group.conditionKey}' out of bounds, resetting to 0.`, type: "warning" });
             }
         }
@@ -424,7 +424,7 @@ const renderModel = async () => {
     if (!blockStateManager || !blockMeshGroup) {
         return;
     }
-    if (isDebug && false) {
+    if (isDebug && true) {
         console.log("Attempt to render:", JSON.stringify(groupsToRender.value));
     }
 
@@ -459,7 +459,7 @@ const rotate = () => {
 }
 
 
-// 各プロパティの下に表示するモデルグループをフィルタリング
+// Filter model groups to display under each property
 const modelGroupsByProperty = computed < Record < string, IActiveModelGroup[]>> (() => {
     const groupsMap: Record<string, IActiveModelGroup[]> = {};
 
@@ -481,14 +481,14 @@ const modelGroupsByProperty = computed < Record < string, IActiveModelGroup[]>> 
     return groupsMap;
 });
 
-// 独立したモデルグループ（どのプロパティにも直接紐づかないもの）を特定するComputed
+// Computed property to identify independent model groups (not directly tied to any property)
 const independentModelGroups = computed < IActiveModelGroup[] > (() => {
     const independent: IActiveModelGroup[] = [];
     const associatedGroupKeys = new Set < string > ();
 
     Object.keys(modelGroupsByProperty.value).forEach(propName => {
         modelGroupsByProperty.value[propName].forEach(group => {
-            associatedGroupKeys.add(group.conditionKey || ''); // conditionKeyがない場合は空文字列で登録
+            associatedGroupKeys.add(group.conditionKey || ''); // Register with empty string if no conditionKey
         });
     });
 
@@ -501,7 +501,7 @@ const independentModelGroups = computed < IActiveModelGroup[] > (() => {
     return independent;
 });
 
-const canvasSize = ref < number > (600); // 初期値として600x600pxを設定
+const canvasSize = ref < number > (600); // Set initial value to 600x600px
 
 watch(canvasSize, () => {
     nextTick(() => {
@@ -540,7 +540,7 @@ const saveAsImage = () => {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                setTimeout(()=>{URL.revokeObjectURL(dataURL);}, 1000); // 解放
+                setTimeout(()=>{URL.revokeObjectURL(dataURL);}, 1000); // Release
                 renderManager?.startAnimation();
                 buttonDisabled.value = false;
             }
@@ -958,11 +958,10 @@ h2, h4 {
 
 /* Large screens (>= 1024px) */
 @media (min-width: 1024px) {
-    /* render-section の min-width を削除し、flex-grow を適用 */
     .render-section {
-        min-width: unset; /* 固定の最小幅を解除 */
-        min-height: 670px; /* オリジナルは維持 */
-        flex-grow: 1; /* 残りのスペースを埋める */
+        min-width: unset;
+        min-height: 670px;
+        flex-grow: 1;
     }
 }
 </style>

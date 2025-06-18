@@ -26,10 +26,9 @@ export class RenderManager {
         this.canvas = canvas;
         this.scene = new THREE.Scene();
 
-        const width = canvas.getAttribute("width") || "0"; // デフォルト値を追加
-        const height = canvas.getAttribute("height") || "0"; // デフォルト値を追加
+        const width = canvas.getAttribute("width") || "0";
+        const height = canvas.getAttribute("height") || "0";
 
-        // widthとheightを数値に変換
         this.width = parseFloat(width as string);
         this.height = parseFloat(height as string);
 
@@ -49,7 +48,7 @@ export class RenderManager {
         this.initLighting();
 
         this.clock = new THREE.Clock();
-        this.objects = []; // シーンに追加されたオブジェクトを保持するリスト
+        this.objects = [];
 
         this._isAnimating = false;
 
@@ -60,20 +59,13 @@ export class RenderManager {
     public initCamera() {
         const halfW = this.aspectRatio * this.viewSize / 2;
         const halfH = this.viewSize / 2;
-
         this.camera = new THREE.OrthographicCamera(
             -halfW, halfW, halfH, -halfH, -1000, 1000
         );
-
         const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
-
-        // カメラの初期位置
         this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
-
-        // カメラを中心へ向ける
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
-
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableKeys = false;
     }
@@ -86,7 +78,7 @@ export class RenderManager {
         this.heightScale = heightScale;
         const baseHeight = this.width;
         this.height = Math.ceil(heightScale * baseHeight);
-        this.renderer.setSize(this.width, this.height);
+        this.renderer.setSize(this.width, this.height); // Update the canvas size
         this.aspectRatio = this.height / this.width;
         const halfW = this.viewSize / 2;
         const halfH = this.aspectRatio * this.viewSize / 2;
@@ -95,17 +87,22 @@ export class RenderManager {
         this.camera.top = halfH;
         this.camera.bottom = -halfH;
         const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
-        // 初期位置
-        this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
+        this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize); // initialize camera position
         this.camera.lookAt(this.scene.position);
         this.controls.target.copy(this.scene.position);
         this.moveY = 0;
-        // ここからカメラ位置変更
+        // move the sight of the camera
         if (heightScale > 1.0) {
+            //         B
+            //      C／|
+            //     ／＼|
+            //   ／  ／|A
+            // ／  ／  |
+            //~~~~~~~~~~~~
             const extraTop = heightScale - 1.0;
-            // AC: ローカルY軸に沿って動かした量
+            // AC: Movement along the local Y axis
             const ac = extraTop * halfW;
-            // θA: カメラの視線角度
+            // θA: angle of camera
             const angleCam = this.camera.rotation.x;
             // cosθA
             const cosThetaA = Math.cos(angleCam);
@@ -123,11 +120,12 @@ export class RenderManager {
         this.controls.saveState();
     }
 
+    // Settings to reproduce vanilla minecraft lighting
     public initLighting() {
         this._lights = [];
 
-        const dirLight = new THREE.DirectionalLight(0xF0F2FF, Math.PI * 0.8000); // 明るい白色の指向性ライト
-        dirLight.position.set(0.5452, 0, -1.00).normalize(); // ライトの方向を設定
+        const dirLight = new THREE.DirectionalLight(0xF0F2FF, Math.PI * 0.8000);
+        dirLight.position.set(0.5452, 0, -1.00).normalize();
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.set(2048, 2048);
         const d = 50;
@@ -181,17 +179,9 @@ export class RenderManager {
         const initialPosition = this.camera.position;
         const scenePos = this.scene.position.clone();
         scenePos.y = this.moveY;
-
-        // 中心を原点にしたローカル位置に変換
         const relativePosition = initialPosition.clone().sub(scenePos);
-
-        // Y軸で180度回転（Math.PIラジアン）
         const rotatedPosition = relativePosition.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(angle));
-
-        // ワールド位置に戻す
         this.camera.position.copy(rotatedPosition.add(scenePos));
-
-        // カメラを中心へ向ける
         this.camera.lookAt(scenePos);
         this.camera.updateProjectionMatrix();
     }
@@ -212,7 +202,6 @@ export class RenderManager {
     }
 
     public setAnimationProgress(progress: number) {
-        // アニメーションを一時停止していることを確認
         if (this._isAnimating) {
             console.warn("Animation is running. Stop animation first before setting a specific frame.");
             return;
@@ -227,13 +216,12 @@ export class RenderManager {
 
     public animate() {
         if (this._isAnimating) {
-            const delta = this.clock.getDelta(); // 前のフレームからの経過時間を取得
-            const deltaTimeMs = delta * 1000; // MCAnimatedMaterial がミリ秒を期待するため変換
+            const delta = this.clock.getDelta();
+            const deltaTimeMs = delta * 1000;
 
-            // ----------------------------------------------------
             this.objects.forEach(obj => {
                 if ('updateAnimation' in obj && typeof (obj as BlockMeshGroup).updateAnimation === 'function') {
-                    (obj as BlockMeshGroup).updateAnimation(deltaTimeMs); // BlockMeshGroup がMCAnimatedMaterialをカプセル化している
+                    (obj as BlockMeshGroup).updateAnimation(deltaTimeMs);
                 }
             });
         }
@@ -257,10 +245,8 @@ export class RenderManager {
         this.camera.top = halfH;
         this.camera.bottom = -halfH;
         const yAngle = Math.tan(THREE.MathUtils.degToRad(39.23));
-        // 初期位置
         this.camera.position.set(this.viewSize, this.viewSize * yAngle, this.viewSize);
         this.camera.lookAt(this.scene.position);
-        // ここからカメラ位置変更
         if (heightScale > 1.0) {
             const extraTop = heightScale - 1.0;
             const ac = extraTop * halfW;
