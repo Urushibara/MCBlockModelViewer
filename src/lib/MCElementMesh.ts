@@ -50,6 +50,14 @@ const MinecraftColors: { [key: string]: number } = {
 
 type Axis = 'x' | 'y' | 'z';
 
+export interface MCElementMeshOption {
+    element: ModelElement,
+    textures: { [key: string]: MCTextures },
+    blockstate: IBlockOption,
+    blockName: string,
+    tint?: { textureID: string, color: number | string }[]
+};
+
 /**
  * A class that generates Three.js meshes from Minecraft model element data.
  * It constructs geometry and materials based on a single `ModelElement`,
@@ -62,22 +70,22 @@ export class MCElementMesh extends THREE.Object3D {
     private _element: ModelElement;
     // Material tinting options
     private _diffuseColors = [
-        { name: "block/redstone_dust", color: 0xFC3100 },
-        { name: "block/lily_pad", color: 0x208030 },
-        { name: "block/water_still", color: 0x3F76E4 },
-        { name: "block/water_flow", color: 0x3F76E4 },
-        { name: "block/lava_still", color: 0xFFFFFF }, // for lava and lava_cauldron
-        { name: "block/lava_flow", color: 0xFFFFFF }, // for lava
-        { name: "block/powder_snow", color: 0xFFFFFF }, // for powder_snow_cauldron
+        { name: "redstone_dust", color: 0xFC3100 },
+        { name: "lily_pad", color: 0x208030 },
+        { name: "water_still", color: 0x3F76E4 },
+        { name: "water_flow", color: 0x3F76E4 },
+        { name: "lava_still", color: 0xFFFFFF }, // for lava and lava_cauldron
+        { name: "lava_flow", color: 0xFFFFFF }, // for lava
+        { name: "powder_snow", color: 0xFFFFFF }, // for powder_snow_cauldron
         { name: "pumpkin_stem", color: 0xE0C71C },
         { name: "melon_stem", color: 0xE0C71C },
-        { name: "block/spruce_leaves", color: 0x619961 },
-        { name: "block/birch_leaves", color: 0x80A755 },
-        { name: "block/cherry_leaves", color: 0xFFFFFF },
-        { name: "block/pale_oak_leaves", color: 0xFFFFFF },
+        { name: "spruce_leaves", color: 0x619961 },
+        { name: "birch_leaves", color: 0x80A755 },
+        { name: "cherry_leaves", color: 0xFFFFFF },
+        { name: "pale_oak_leaves", color: 0xFFFFFF },
         { name: "azalea_leaves", color: 0xFFFFFF },
-        { name: "block/vine", color: 0x71A74D },
-        { name: "block/leaf_litter", color: 0xA17448 },
+        { name: "vine", color: 0x71A74D },
+        { name: "leaf_litter", color: 0xA17448 },
         { name: "_leaves", color: 0x71A74D },
         { name: "stonecutter", color: 0xFFFFFF },
         { name: "default", color: 0x8EB971 }
@@ -85,6 +93,8 @@ export class MCElementMesh extends THREE.Object3D {
     private _additionalMaterialOption = [
         { name: "block/respawn_anchor_top", transparent: false },
     ];
+
+    private _cullfaces: { [face in IFaceName]?: THREE.Mesh[] } = {};
 
     /**
      * Constructor for MCElementMesh.
@@ -94,8 +104,15 @@ export class MCElementMesh extends THREE.Object3D {
      * @param blockstate - Block state data (e.g., `{uvlock: true, y: 270}`)
      * @param blockName - The name of the block
      */
-    constructor(element: ModelElement, textures: { [key: string]: MCTextures }, blockstate: IBlockOption, blockName: string) {
+    constructor(option: MCElementMeshOption) {
         super(); // Call the THREE.Object3D constructor
+        const {
+            element,
+            textures,
+            blockstate,
+            blockName,
+            tint = [],
+        } = option;
 
         // Custom property to indicate that this instance is MCElementMesh
         (this as any).isMCElementMesh = true;
@@ -217,7 +234,7 @@ export class MCElementMesh extends THREE.Object3D {
             let material = materialCache[matCacheKey];
 
             if (!material) {
-                let materialOptions:MCAnimatedMaterialOptions = {
+                let materialOptions: MCAnimatedMaterialOptions = {
                     map: textureEntry.map,
                     alphaMap: textureEntry.alphaMap || null,
                     side: THREE.FrontSide, // Minecraft models are usually single-sided rendering
@@ -227,23 +244,38 @@ export class MCElementMesh extends THREE.Object3D {
 
                 const textureName: string = textureEntry.map?.userData?.texture_name || `block/${blockName}`;
 
-                if (faceData.hasOwnProperty("tintindex")) { // Handle tinting options
-                    const match = this._diffuseColors.find(entry =>
-                        entry.name !== "default" && textureName.includes(entry.name)
-                    );
-                    const diffuse = (match || this._diffuseColors.find(e => e.name === "default"));
-                    if (diffuse) {
-                        materialOptions.color = diffuse.color;
+                if (tint.length) {
+                    // Custom tinting
+                    const diffuse = tint?.filter(elm => elm.textureID == faceData.texture);
+                    if (diffuse.length) {
+                        const color = diffuse[0].color;
+                        if (typeof color === 'string') {
+                            if (MinecraftColors[color]) {
+                                materialOptions.color = MinecraftColors[color];
+                            }
+                        } else if (typeof color === 'number') {
+                            materialOptions.color = color;
+                        }
                     }
-                }
+                } else {
+                    if (faceData.hasOwnProperty("tintindex")) { // Handle tinting options
+                        const match = this._diffuseColors.find(entry =>
+                            entry.name !== "default" && textureName.includes(entry.name)
+                        );
+                        const diffuse = (match || this._diffuseColors.find(e => e.name === "default"));
+                        if (diffuse) {
+                            materialOptions.color = diffuse.color;
+                        }
+                    }
 
-                // Custom tinting
-                const custom = blockstate as IBlockCustomOption;
-                const diffuse = custom.diffuse;
-                if (diffuse && faceData.texture == diffuse.texture) {
-                    const color = diffuse.color;
-                    if (color) {
-                        materialOptions.color = MinecraftColors[color];
+                    // Custom tinting
+                    const custom = blockstate as IBlockCustomOption;
+                    const diffuse = custom.diffuse;
+                    if (diffuse && faceData.texture == diffuse.texture) {
+                        const color = diffuse.color;
+                        if (color && MinecraftColors[color]) {
+                            materialOptions.color = MinecraftColors[color];
+                        }
                     }
                 }
 
@@ -277,6 +309,14 @@ export class MCElementMesh extends THREE.Object3D {
             }
             const mesh = new THREE.Mesh(geometry, material);
             (this as THREE.Object3D).add(mesh); // Add child mesh to MCElementMesh instance itself
+
+            if (faceData.cullface) {
+                const facename = this._worldFaceDirection(faceData.cullface, blockstateRotations);
+                if (!this._cullfaces[facename]) {
+                    this._cullfaces[facename] = [];
+                }
+                this._cullfaces[facename]?.push(mesh);
+            }
         }
 
         // Each geometry is already centered at Three.js world origin (0,0,0),
@@ -428,7 +468,7 @@ export class MCElementMesh extends THREE.Object3D {
      * @param face - The direction of the face
      * @returns Array of UV coordinates `[u0, v0, u1, v1]` (x1, y1, x2, y2)
      */
-    private _computeDefaultUV( face: IFaceName ): [number, number, number, number] {
+    private _computeDefaultUV(face: IFaceName): [number, number, number, number] {
 
         const from = this._element.from;
         const to = this._element.to;
@@ -446,7 +486,7 @@ export class MCElementMesh extends THREE.Object3D {
             case 'west': // X- (left) face
             case 'east': // X+ (right) face
                 return [16 - to[z], 16 - to[y], 16 - from[z], 16 - from[y]]; // Z, Y
-            
+
             default: throw new Error(`Unknown face: ${face}`);
         }
     }
@@ -682,6 +722,51 @@ export class MCElementMesh extends THREE.Object3D {
         return angleDeg as IAngle;
     };
 
+    /**
+     * Converts a local face direction into the corresponding world face direction
+     * after applying blockstate rotations.
+     * @param face - The original face name (e.g., 'north', 'up')
+     * @param rotations - The list of blockstate rotations to apply
+     * @returns The resulting face name in world coordinates
+     */
+    private _worldFaceDirection(face: IFaceName, rotations: InternalStateRotation[]): IFaceName {
+        const faceNormals: { [K in IFaceName]: THREE.Vector3 } = {
+            up: new THREE.Vector3(0, 1, 0),
+            down: new THREE.Vector3(0, -1, 0),
+            north: new THREE.Vector3(0, 0, -1),
+            south: new THREE.Vector3(0, 0, 1),
+            west: new THREE.Vector3(-1, 0, 0),
+            east: new THREE.Vector3(1, 0, 0)
+        };
+        const directions = Object.keys(faceNormals);
+
+        const normal = faceNormals[face];
+        if (!normal) return face;
+
+        let rotated = normal.clone();
+        for (const rotation of rotations) {
+            const angleRad = THREE.MathUtils.degToRad(rotation.angle || 0);
+            const rotMatrix = new THREE.Matrix4();
+            switch (rotation.axis) {
+                case 'x': rotMatrix.makeRotationX(angleRad); break;
+                case 'y': rotMatrix.makeRotationY(angleRad); break;
+            }
+            rotated = rotated.applyMatrix4(rotMatrix);
+        }
+
+        let bestMatch = face;
+        let bestDot = -Infinity;
+        for (const dir of directions) {
+            const dot = rotated.dot(faceNormals[dir]);
+            if (dot > bestDot) {
+                bestDot = dot;
+                bestMatch = dir as IFaceName;
+            }
+        }
+
+        return bestMatch;
+    }
+
 
     /**
      * Updates all animated materials associated with this mesh.
@@ -713,6 +798,67 @@ export class MCElementMesh extends THREE.Object3D {
                 (material as any).reset();
             }
         });
+    }
+
+    /**
+     * Tints the texture with the specified ID
+     * @param textureID - e.g., "#texture"
+     * @param color - 0xFF0000 | "light_blue"(minecraft color name)
+     */
+    public tintTexture(textureID: string, color: number | string) {
+        (this as THREE.Object3D).userData.materials.forEach((material: THREE.Material) => {
+            const texture: THREE.Texture = material?.map;
+            if (texture && texture?.userData?.texture_id) {
+                const texture_id = texture?.userData?.texture_id;
+                if (texture_id && texture_id == textureID) {
+                    if (typeof color === 'string') {
+                        if (MinecraftColors[color]) {
+                            material.color = MinecraftColors[color];
+                        }
+                    } else if (typeof color === 'number') {
+                        material.color = color;
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Set visible to faces for which `culface` is specified.
+     * @param faces - e.g, {'north': false, 'east': false}
+     */
+    public setVisibleToCulfaces(faces: { [facename in IFaceName]: boolean }) {
+        Object.keys(faces).forEach(facename => {
+            if (this._cullfaces[facename]) {
+                this._cullfaces[facename].forEach(mesh => {
+                    mesh.visible = faces[facename];
+                });
+            }
+        });
+    }
+
+    /**
+     * Sets the AOmap to specified face direction
+     */
+    public applyAOMap(face: IFaceName, aoTexture: THREE.Texture, intensity = 1.0) {
+        const meshes = this._cullfaces[face];
+        if (!meshes) return;
+
+        for (const mesh of meshes) {
+            const geometry = mesh.geometry as THREE.BufferGeometry;
+            const material = mesh.material as THREE.MeshStandardMaterial;
+
+            if (!geometry.attributes.uv2) {
+                geometry.setAttribute(
+                    'uv2',
+                    new THREE.Float32BufferAttribute(geometry.attributes.uv.array.slice(), 2)
+                );
+            }
+
+            material.aoMap = aoTexture;
+            material.aoMapIntensity = intensity;
+            material.needsUpdate = true;
+        }
     }
 
     /**

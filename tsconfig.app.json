@@ -11,6 +11,7 @@
     "verbatimModuleSyntax": true,
     //"moduleDetection": "force",
     "noEmit": true,
+    "declaration": true,
 
     /* Path mapping for alias */
     "baseUrl": ".",

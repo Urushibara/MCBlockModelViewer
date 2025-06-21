@@ -175,12 +175,12 @@ export class BlockMeshGroup extends THREE.Group {
 
                 // Create and add each element in the model as an MCElementMesh
                 modelData.elements.forEach(element => {
-                    const elementMesh = new MCElementMesh(
-                        element,                  // element data
-                        texturesForMCElementMesh, // Map of loaded textures
-                        blockstate,               // blockstate data (including x, y, uvlock, etc.)
-                        this._blockName
-                    );
+                    const elementMesh = new MCElementMesh({
+                        element: element,                   // element data
+                        textures: texturesForMCElementMesh, // Map of loaded textures
+                        blockstate: blockstate,             // blockstate data (including x, y, uvlock, etc.)
+                        blockName: this._blockName,
+                    });
                     (this as THREE.Group).add(elementMesh);
 
                     if (isDebug && false) {

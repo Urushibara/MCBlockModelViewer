@@ -14,6 +14,7 @@
     "@urushibara/canvas2apng": "github:Urushibara/canvas2apng",
     "jszip": "^3.10.1",
     "three": "^0.177.0",
+    "vite-plugin-dts": "^4.5.4",
     "vue": "^3.5.13",
     "vue-toast-notification": "^3.1.3"
   },

@@ -4,6 +4,7 @@
  * Definition of a Minecraft model
  */
 export interface MCModel {
+    ambientocclusion?: boolean,
     textures?: { [key:string] : string },
     parent?: string,
     elements?: ModelElement[]
@@ -50,8 +51,8 @@ export type ElementFaces = {
  */
 export interface FaceProperties {
     uv?: [number, number, number, number], // [x1, y1, x2, y2] - UV coordinate range (0-16 scale)
-    texture: string,                        // Reference key for the texture (e.g., "#texture_variable")
+    texture: string,                       // Reference key for the texture (e.g., "#texture_variable")
     cullface?: IFaceName,                  // Culling face
-    rotation?: IAngle,                      // UV rotation of the face (default: 0)
-    tintindex?: number                      // Tint index (default: -1)
+    rotation?: IAngle,                     // UV rotation of the face (default: 0)
+    tintindex?: number                     // Tint index (default: -1)
 }
