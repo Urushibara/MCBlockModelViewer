@@ -19,12 +19,13 @@ const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 // Fallback white material (for models without textures)
 const FALLBACK_MATERIAL_CUBE = new THREE.MeshLambertMaterial({ color: 0xFF00FF });
+let isFallbackTexLoaded = false;
 
 export class BlockMeshGroup extends THREE.Group {
-    _modelLoader:BlockModelLoader;
-    _textureLoader:MCTextureLoader; // Instance of MCTextureLoader
-    _isFallbackTexLoaded = false;
-    _blockName: string;
+    _modelLoader: BlockModelLoader | undefined;
+    _textureLoader: MCTextureLoader | undefined; // Instance of MCTextureLoader
+    _blockName: string = "";
+    _prepared = false;
     public isAnimate = false;
     public exporter = new APNGExporter();
 
@@ -38,12 +39,11 @@ export class BlockMeshGroup extends THREE.Group {
      */
     constructor({ blockName, modelLoader, textureLoader }: BlockMeshGroupParameter) {
         super();
-        if (!modelLoader || !textureLoader) {
-            throw new Error("BlockMeshGroup requires modelLoader and textureLoader instances.");
+        if (blockName && modelLoader && textureLoader) {
+            this._modelLoader = modelLoader;
+            this._textureLoader = textureLoader; // Retain MCTextureLoader instance
+            this._blockName = blockName;
         }
-        this._modelLoader = modelLoader;
-        this._textureLoader = textureLoader; // Retain MCTextureLoader instance
-        this._blockName = blockName;
     }
 
     /**
@@ -53,10 +53,13 @@ export class BlockMeshGroup extends THREE.Group {
      * @returns {Promise<boolean>}
      */
     async prepare(modelDefs:IBlockOption[], blockName:string):Promise< boolean > {
-        if (!this._isFallbackTexLoaded) {
+        if (!this._modelLoader || !this._textureLoader) {
+            throw new Error("[BlockMeshGroup] prepare() requires modelLoader and textureLoader instances.");
+        }
+        if (!isFallbackTexLoaded) {
             FALLBACK_MATERIAL_CUBE.map = await this._textureLoader.getMissingTexture();
             FALLBACK_MATERIAL_CUBE.needsUpdate = true; // Notify map update
-            this._isFallbackTexLoaded = true;
+            isFallbackTexLoaded = true;
         }
         this._blockName = blockName;
         const uniqueModelRefs = new Set(modelDefs.map(def => def.model));
@@ -66,6 +69,7 @@ export class BlockMeshGroup extends THREE.Group {
             if (isDebug && false) {
                 console.log(`[BlockMeshGroup] All required models and textures prepared for '${blockName}'.`);
             }
+            this._prepared = true;
             return true;
         } catch(error) {
             this._addFallbackCube();
@@ -81,6 +85,10 @@ export class BlockMeshGroup extends THREE.Group {
      * @returns {Promise<void>}
      */
     async _prepareModelAndTextures(modelRef:string):Promise< void > {
+        if (!this._modelLoader || !this._textureLoader) {
+            throw new Error("BlockMeshGroup requires modelLoader and textureLoader instances.");
+        }
+
         if (this._modelCache.has(modelRef) && this._modelCache.get(modelRef) !== null) {
             return; // Do nothing if already successfully prepared
         }
@@ -121,16 +129,12 @@ export class BlockMeshGroup extends THREE.Group {
      * @param {Array<object>} modelDefs - List of model definitions returned from BlockStateManager.getActiveModels
      */
     async show(modelDefs:IBlockOption[]):Promise< void > {
+        if (!this._modelLoader || !this._textureLoader) {
+            throw new Error("BlockMeshGroup requires modelLoader and textureLoader instances.");
+        }
+
         // Remove all currently displayed child meshes and free Three.js resources
-        (this as THREE.Group).children.forEach(child => {
-            if (child instanceof MCElementMesh) {
-                child.dispose(); // Call MCElementMesh's dispose
-            } else if (child.isMesh) { // Fallback cube, etc.
-                if (child.geometry) child.geometry.dispose();
-                if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
-            }
-        });
-        (this as THREE.Group).clear(); // Remove all child objects from THREE.Group
+        this.clearBlock(false);
 
         if (!modelDefs || modelDefs.length === 0) {
             this._addFallbackCube();
@@ -210,24 +214,24 @@ export class BlockMeshGroup extends THREE.Group {
 
     public updateAnimation(deltaTimeMs: number):void {
         (this as THREE.Group).children.forEach(object => {
-            if (object.isMCElementMesh) {
-                object.updateAnimation(deltaTimeMs);
+            if ((object as MCElementMesh).isMCElementMesh) {
+                (object as MCElementMesh).updateAnimation(deltaTimeMs);
             }
         });
     }
 
     public setProgress(progress: number):void {
         (this as THREE.Group).children.forEach(object => {
-            if (object.isMCElementMesh) {
-                object.setProgress(progress);
+            if ((object as MCElementMesh).isMCElementMesh) {
+                (object as MCElementMesh).setProgress(progress);
             }
         });
     }
 
     public reset():void {
         (this as THREE.Group).children.forEach(object => {
-            if (object.isMCElementMesh) {
-                object.resetMaterials();
+            if ((object as MCElementMesh).isMCElementMesh) {
+                (object as MCElementMesh).resetMaterials();
             }
         });
     }
@@ -238,40 +242,60 @@ export class BlockMeshGroup extends THREE.Group {
         }
     }
 
-    public clearBlock():void {
+    public clearBlock(cache = true):void {
         (this as THREE.Group).children.forEach((child) => {
             if (child instanceof MCElementMesh) {
                 child.dispose();
-            } else if (child.isMesh) {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
-            }
-            if (child.parent) {
-                child.parent.remove(child);
+            } else if ((child as THREE.Mesh).isMesh) {
+                if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
+                if ((child as THREE.Mesh).material) {
+                    const materials: THREE.Material | THREE.Material[] = (child as THREE.Mesh).material;
+                    if (!Array.isArray(materials) && materials !== FALLBACK_MATERIAL_CUBE) {
+                        (materials as THREE.Material).dispose();
+                    } else {
+                        (materials as THREE.Material[]).forEach( (material: THREE.Material) => {
+                            if (material !== FALLBACK_MATERIAL_CUBE) {
+                                material.dispose();
+                            }
+                        });
+                    }
+                }
             }
         });
         (this as THREE.Group).clear();
-        this._modelCache.clear();
+        if(cache){
+            this._modelCache.clear();
+        }
     }
 
     /**
      * Disposes all meshes and cached resources within this group.
      * Texture disposal is handled by MCTextureLoader.
      */
-    dispose() {
-        (this as THREE.Group).children.forEach(child => {
-            if (child instanceof MCElementMesh) {
-                child.dispose();
-            } else if (child.isMesh) {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material && child.material !== FALLBACK_MATERIAL_CUBE) child.material.dispose();
-            }
-        });
-        (this as THREE.Group).clear();
-
-        this._modelCache.clear();
+    public dispose() {
+        this.clearBlock();
         // this._textureMapCache.clear(); // This is not needed. It's MCTextureLoader's responsibility.
 
         console.log("[BlockMeshGroup] Disposed all meshes and cleared caches.");
+    }
+
+    public copy(source): this {
+        super.copy(source);
+        
+        this._modelLoader = source._modelLoader;
+        this._textureLoader = source._textureLoader;
+        this._blockName = source._blockName;
+        this._prepared = source._prepared;
+        this.isAnimate = source.isAnimate;
+
+        if (source._prepared) {
+            this._modelCache = new Map(source._modelCache);
+        }
+
+        return this;
+    }
+
+    public clone(): this {
+        return new (this.constructor as new () => this)().copy(this);
     }
 }

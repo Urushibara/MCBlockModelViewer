@@ -30,6 +30,8 @@ export class MCElementMesh extends THREE.Object3D {
 
     private _cullfaces: { [face in IFaceName]?: THREE.Mesh[] } = {};
 
+    isMCElementMesh = true;
+
     /**
      * Constructor for MCElementMesh.
      * Generates a Three.js mesh from Minecraft model element data.
@@ -38,89 +40,91 @@ export class MCElementMesh extends THREE.Object3D {
      * @param blockstate - Block state data (e.g., `{uvlock: true, y: 270}`)
      * @param blockName - The name of the block
      */
-    constructor(option: MCElementMeshOption) {
+    constructor(option?: MCElementMeshOption) {
         super(); // Call the THREE.Object3D constructor
-        const {
-            element,
-            textures,
-            blockstate,
-            blockName,
-            tint = [],
-        } = option;
-
-        // Custom property to indicate that this instance is MCElementMesh
-        (this as any).isMCElementMesh = true;
-
-        // Convert blockstate rotation specification to an array per axis
-        const blockstateRotations = convertBlockstateRotation(blockstate);
-        // Get the overall uvlock setting from blockstate
-        const isUvLocked = blockstate.uvlock === true;
-
-        // List of geometries and materials to dispose of when dispose() is called
-        const geometriesToDispose: THREE.BufferGeometry[] = [];
-        const materialsToDispose: THREE.Material[] = [];
-
-        // Process each face of the element
-        const faces: ElementFaces = element.faces || {};
-        for (const faceName in faces) {
-            const faceData: FaceProperties = faces[faceName as IFaceName]!; // Type assertion to exclude undefined
-
-            let textureKey = faceData.texture;
-            let textureEntry = textures[textureKey];
-
-            if (!textureEntry || !textureEntry.map) {
-                if (!textureKey.startsWith('#')) { // Handle patterns without #
-                    textureKey = `#${textureKey}`;
-                    textureEntry = textures[textureKey];
-                }
-                // This process is unnecessary because MCTextureLoader checks for the existence of textures in advance.
-                if (!textureEntry || !textureEntry.map) {
-                    console.warn(`[MCElementMesh] Texture not found for key: '${textureKey}'. Skipping face: ${faceName}`);
-                    continue;
-                }
-            }
-
-            // Generate geometry from the Block Model's element.face and blockstates information.
-            // This meethod also apply rotation, and map uvs to vertices.
-            const geometry = createFaceGeometry(
+        if (option) {
+            const {
                 element,
-                faceName as IFaceName,
-                faceData,
-                isUvLocked,
-                blockstateRotations
-            );
-            geometriesToDispose.push(geometry);
-
-            // Generate a material from the texture information in the element.face.
-            const material = createFaceMaterial(
-                element,
-                textureEntry,
-                blockName,
-                faceData,
+                textures,
                 blockstate,
-                tint
-            );
-            if (material.isMCAnimatedMaterial) {
-                this._animatedMaterials.add(material);
-            }
-            materialsToDispose.push(material);
+                blockName,
+                tint = [],
+            } = option;
 
-            // Create Mesh
-            const mesh = new THREE.Mesh(geometry, material);
-            (this as THREE.Object3D).add(mesh); // Add child mesh to MCElementMesh instance itself
+            // Custom property to indicate that this instance is MCElementMesh
+            (this as any).isMCElementMesh = true;
 
-            if (faceData.cullface) {
-                const facename = worldFaceDirection(faceData.cullface, blockstateRotations);
-                if (!this._cullfaces[facename]) {
-                    this._cullfaces[facename] = [];
+            // Convert blockstate rotation specification to an array per axis
+            const blockstateRotations = convertBlockstateRotation(blockstate);
+            // Get the overall uvlock setting from blockstate
+            const isUvLocked = blockstate.uvlock === true;
+
+            // List of geometries and materials to dispose of when dispose() is called
+            const geometriesToDispose: THREE.BufferGeometry[] = [];
+            const materialsToDispose: THREE.Material[] = [];
+
+            // Process each face of the element
+            const faces: ElementFaces = element.faces || {};
+            for (const faceName in faces) {
+                const faceData: FaceProperties = faces[faceName as IFaceName]!; // Type assertion to exclude undefined
+
+                let textureKey = faceData.texture;
+                let textureEntry = textures[textureKey];
+
+                if (!textureEntry || !textureEntry.map) {
+                    if (!textureKey.startsWith('#')) { // Handle patterns without #
+                        textureKey = `#${textureKey}`;
+                        textureEntry = textures[textureKey];
+                    }
+                    // This process is unnecessary because MCTextureLoader checks for the existence of textures in advance.
+                    if (!textureEntry || !textureEntry.map) {
+                        console.warn(`[MCElementMesh] Texture not found for key: '${textureKey}'. Skipping face: ${faceName}`);
+                        continue;
+                    }
                 }
-                this._cullfaces[facename]?.push(mesh);
-            }
-        }
 
-        // Store generated geometries and materials in userData for resource disposal
-        (this as THREE.Object3D).userData.materials = materialsToDispose;
-        (this as THREE.Object3D).userData.geometries = geometriesToDispose;
+                // Generate geometry from the Block Model's element.face and blockstates information.
+                // This meethod also apply rotation, and map uvs to vertices.
+                const geometry = createFaceGeometry(
+                    element,
+                    faceName as IFaceName,
+                    faceData,
+                    isUvLocked,
+                    blockstateRotations
+                );
+                geometriesToDispose.push(geometry);
+
+                // Generate a material from the texture information in the element.face.
+                const material = createFaceMaterial(
+                    element,
+                    textureEntry,
+                    blockName,
+                    faceData,
+                    blockstate,
+                    tint
+                );
+                if ((material as MCAnimatedBasicMaterial).isMCAnimatedMaterial) {
+                    this._animatedMaterials.add(material as MCAnimatedBasicMaterial);
+                }
+                materialsToDispose.push(material);
+
+                // Create Mesh
+                const mesh = new THREE.Mesh(geometry, material);
+                (this as THREE.Object3D).add(mesh); // Add child mesh to MCElementMesh instance itself
+
+                if (faceData.cullface) {
+                    const facename = worldFaceDirection(faceData.cullface, blockstateRotations);
+                    if (!this._cullfaces[facename]) {
+                        this._cullfaces[facename] = [];
+                    }
+                    this._cullfaces[facename]?.push(mesh);
+                }
+            }
+
+            // Store generated geometries and materials in userData for resource disposal
+            (this as THREE.Object3D).userData.materials = materialsToDispose;
+            (this as THREE.Object3D).userData.geometries = geometriesToDispose;
+        }
     }
 
     // End of constructor
@@ -164,21 +168,23 @@ export class MCElementMesh extends THREE.Object3D {
      * @param color - 0xFF0000 | "light_blue"(minecraft color name)
      */
     public tintTexture(textureID: string, color: number | string) {
-        (this as THREE.Object3D).userData.materials.forEach((material: THREE.Material) => {
-            const texture: THREE.Texture = material?.map;
-            if (texture && texture?.userData?.texture_id) {
-                const texture_id = texture?.userData?.texture_id;
-                if (texture_id && texture_id == textureID) {
-                    if (typeof color === 'string') {
-                        if (MinecraftColors[color]) {
-                            material.color = MinecraftColors[color];
+        if(Array.isArray((this as THREE.Object3D).userData.materials)){
+            (this as THREE.Object3D).userData.materials.forEach((material: THREE.MeshBasicMaterial) => {
+                const texture: THREE.Texture|null = material?.map;
+                if (texture && texture?.userData?.texture_id) {
+                    const texture_id = texture?.userData?.texture_id;
+                    if (texture_id && texture_id == textureID) {
+                        if (typeof color === 'string') {
+                            if (MinecraftColors[color]) {
+                                material.color = new THREE.Color(MinecraftColors[color]);
+                            }
+                        } else if (typeof color === 'number') {
+                            material.color = new THREE.Color(color);
                         }
-                    } else if (typeof color === 'number') {
-                        material.color = color;
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     /**
@@ -224,28 +230,32 @@ export class MCElementMesh extends THREE.Object3D {
      * This prevents memory leaks and properly cleans up WebGL resources.
      */
     public dispose(): void {
-        // Dispose geometries
-        (this as THREE.Object3D).userData.geometries.forEach((geom: THREE.BufferGeometry) => {
-            if (geom && typeof geom.dispose === 'function') {
-                geom.dispose();
-            }
-        });
-        (this as THREE.Object3D).userData.geometries = [];
-
-        // Dispose materials
-        (this as THREE.Object3D).userData.materials.forEach((mat: THREE.Material) => {
-            let isManagedByAnimatedMaterial = false;
-            for (const animatedMat of this._animatedMaterials) {
-                if ((animatedMat as any).material === mat) {
-                    isManagedByAnimatedMaterial = true;
-                    break;
+        if(Array.isArray((this as THREE.Object3D).userData.geometries)){
+            // Dispose geometries
+            (this as THREE.Object3D).userData.geometries.forEach((geom: THREE.BufferGeometry) => {
+                if (geom && typeof geom.dispose === 'function') {
+                    geom.dispose();
                 }
-            }
-            if (!isManagedByAnimatedMaterial && mat && typeof mat.dispose === 'function') {
-                mat.dispose();
-            }
-        });
-        (this as THREE.Object3D).userData.materials = [];
+            });
+            (this as THREE.Object3D).userData.geometries = [];
+        }
+
+        if(Array.isArray((this as THREE.Object3D).userData.materials)){
+            // Dispose materials
+            (this as THREE.Object3D).userData.materials.forEach((mat: THREE.Material) => {
+                let isManagedByAnimatedMaterial = false;
+                for (const animatedMat of this._animatedMaterials) {
+                    if ((animatedMat as any).material === mat) {
+                        isManagedByAnimatedMaterial = true;
+                        break;
+                    }
+                }
+                if (!isManagedByAnimatedMaterial && mat && typeof mat.dispose === 'function') {
+                    mat.dispose();
+                }
+            });
+            (this as THREE.Object3D).userData.materials = [];
+        }
 
         // Dispose animated materials themselves
         this._animatedMaterials.forEach(animatedMat => {
@@ -260,5 +270,73 @@ export class MCElementMesh extends THREE.Object3D {
 
         // Remove reference from parent
         (this as THREE.Object3D).parent = null;
+    }
+
+    public override copy(source: this): this {
+        (this as THREE.Object3D).clear();
+
+        (this as THREE.Object3D).userData = { geometries: [], materials: [] };
+        this._animatedMaterials.clear();
+        this._cullfaces = {};
+
+        function isMesh(obj: any): obj is THREE.Mesh {
+            return obj.isMesh === true;
+        }
+
+        (source as THREE.Object3D).children.forEach(mesh => {
+            if (isMesh(mesh)){
+                const clonedGeometry = new THREE.BufferGeometry().copy(mesh.geometry);
+                (this as THREE.Object3D).userData.geometries.push(clonedGeometry);
+
+                let clonedMaterial: THREE.Material|THREE.Material[];
+                if (Array.isArray(mesh.material)){
+                    mesh.material.forEach(material => {
+                        (this as THREE.Object3D).userData.materials.push(material.clone());
+                    });
+                    clonedMaterial = (this as THREE.Object3D).userData.materials;
+                } else {
+                    clonedMaterial = mesh.material.clone();
+                    (this as THREE.Object3D).userData.materials.push(clonedMaterial);
+                    if ((clonedMaterial as MCAnimatedBasicMaterial).isMCAnimatedMaterial) {
+                        this._animatedMaterials.add(clonedMaterial as MCAnimatedBasicMaterial);
+                    }
+                }
+
+                const newMesh = new THREE.Mesh(clonedGeometry, clonedMaterial);
+                newMesh.position.copy(mesh.position);
+                newMesh.rotation.copy(mesh.rotation);
+                newMesh.scale.copy(mesh.scale);
+                newMesh.matrix.copy(mesh.matrix);
+                newMesh.matrixAutoUpdate = mesh.matrixAutoUpdate;
+                newMesh.castShadow = mesh.castShadow;
+                newMesh.receiveShadow = mesh.receiveShadow;
+                newMesh.name = mesh.name;
+                newMesh.visible = mesh.visible;
+                newMesh.userData = JSON.parse(JSON.stringify(mesh.userData));
+
+                (this as THREE.Object3D).add(newMesh);
+
+                for (const [faceName, entry] of Object.entries(source._cullfaces)) {
+                    if (entry.includes(mesh)) {
+                        if (!this._cullfaces[faceName as IFaceName]) {
+                            this._cullfaces[faceName as IFaceName] = [];
+                        }
+                        this._cullfaces[faceName as IFaceName]?.push(newMesh);
+                    }
+                };
+            }
+        });
+
+        (this as THREE.Object3D).position.copy((source as THREE.Object3D).position);
+        (this as THREE.Object3D).rotation.copy((source as THREE.Object3D).rotation);
+        (this as THREE.Object3D).scale.copy((source as THREE.Object3D).scale);
+        (this as THREE.Object3D).name = (source as THREE.Object3D).name;
+        (this as THREE.Object3D).visible = (source as THREE.Object3D).visible;
+
+        return this;
+    }
+
+    public clone(): this {
+        return new (this.constructor as new () => this)().copy(this);
     }
 }

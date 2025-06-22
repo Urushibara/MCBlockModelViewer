@@ -7,8 +7,11 @@ import type { MCAnimatedBasicMaterial } from './MCAnimatedMaterials';
 export class RenderManager {
 
     public renderer: THREE.WebGLRenderer;
+    //@ts-ignore
     public scene: THREE.Scene;
-    public camera: THREE.Camera;
+    //@ts-ignore
+    public camera: THREE.OrthographicCamera;
+    //@ts-ignore
     public controls: OrbitControls;
     public canvas: HTMLCanvasElement;
     public width: number;
@@ -67,7 +70,12 @@ export class RenderManager {
         this.camera.lookAt(this.scene.position);
         this.camera.updateProjectionMatrix();
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableKeys = false;
+        this.controls.keys = {
+            LEFT: '',
+            UP: '',
+            RIGHT: '',
+            BOTTOM: ''
+        };
     }
 
     public recalcCanvasSize(exporter: APNGExporter) {

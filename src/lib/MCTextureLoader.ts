@@ -24,7 +24,7 @@ export interface TextureUserData {
 export interface Frame { index: number, time: number };
 
 export class MCTextureLoader {
-    static _cachedMissingTexture = null;
+    static _cachedMissingTexture: THREE.Texture | null = null;
     private _jarLoader: MinecraftJarLoader;
     public textures = new Map<string, MCTextures>();
 

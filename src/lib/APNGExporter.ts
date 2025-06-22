@@ -23,7 +23,7 @@ export class APNGExporter {
     private canvas: OffscreenCanvas;
     private layeredCanvas: OffscreenCanvas;
     private renderer: THREE.WebGLRenderer;
-    private camera: THREE.Camera;
+    private camera: THREE.OrthographicCamera;
 
     // Initializes internal renderer and camera
     constructor() {
@@ -77,7 +77,7 @@ export class APNGExporter {
             if (mesh.material) {
                 let materials: THREE.Material[];
                 if (Array.isArray(mesh.material)) {
-                    materials = mesh.material as THREE.Material;
+                    materials = mesh.material as THREE.Material[];
                 } else {
                     materials = [mesh.material as THREE.Material];
                 }
@@ -108,14 +108,14 @@ export class APNGExporter {
         const frames: number[] = [];
 
         (this._materials as MCAnimatedMaterial[]).forEach(material => {
-            if ((material as THREE.Material).map) {
-                const texture: THREE.Texture = (material as THREE.Material).map;
-                if (texture.userData &&
+            if ((material as THREE.MeshBasicMaterial).map) {
+                const texture = (material as THREE.MeshBasicMaterial).map;
+                if (texture && texture.userData &&
                     typeof texture.userData === 'object' &&
                     typeof texture.userData?.animationDuration === 'number' &&
                     typeof texture.userData?.totalFrames === 'number' // Fallback stored in MCTextureLoader
                 ) {
-                    const userData: TextureUserData = texture.userData;
+                    const userData: TextureUserData = texture.userData as TextureUserData;
                     durations.push(userData.animationDuration);
                     frames.push(userData.totalFrames);
                     (material as MCAnimatedMaterial).setFrame(0);

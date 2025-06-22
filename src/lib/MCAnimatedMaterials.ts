@@ -36,11 +36,11 @@ class MCAnimatedMaterialHelper {
     private crossfadeBlend: number = 0;
 
     // Three.js Material instance
-    public material: THREE.Material;
+    public material: THREE.Material | undefined;
     // Main texture
-    public map: THREE.Texture;
+    public map: THREE.Texture | undefined;
     // Alpha map texture
-    public alphaMap: THREE.Texture | null;
+    public alphaMap: THREE.Texture | undefined;
 
     // Holds the shader instance provided by Three.js's onBeforeCompile
     private _shader: { vertexShader: string, fragmentShader: string, uniforms: any } | undefined;
@@ -53,10 +53,10 @@ class MCAnimatedMaterialHelper {
      * @param material - The THREE.Material instance to which this class's features will be injected
      * @param parameters - Initial parameters for the material
      */
-    constructor(material: THREE.Material, parameters: THREE.MaterialParameters) {
+    constructor(material: THREE.Material, parameters: MCAnimatedMaterialOptions) {
         this.material = material;
-        this.map = parameters.map as THREE.Texture;
-        this.alphaMap = (parameters as MCAnimatedMaterialOptions).alphaMap || null; // Type assertion for alphaMap
+        this.map = parameters?.map as THREE.Texture;
+        this.alphaMap = parameters?.alphaMap || undefined; // Type assertion for alphaMap
 
         if (!this.map || !this.map.image) {
             console.warn("[MCAnimatedMaterial] Main texture or its image not found. Animation features will be disabled.");
@@ -96,7 +96,7 @@ class MCAnimatedMaterialHelper {
         shader: { vertexShader: string, fragmentShader: string, uniforms: any },
         _renderer: THREE.WebGLRenderer
     ): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
 
         this._shader = shader; // Save the shader instance to update uniforms from the update method
 
@@ -199,7 +199,7 @@ class MCAnimatedMaterialHelper {
      * @param currentFrameIndex - The index of the current frame to set
      */
     private applyFrameUV(currentFrameIndex: number): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         if (!this.map || !this.isAnimated || !animationData) {
             return;
         }
@@ -265,7 +265,7 @@ class MCAnimatedMaterialHelper {
      * @param deltaTime - Elapsed time in milliseconds since the last update
      */
     public update(deltaTime: number): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         if (!this.isAnimated) {
             return;
         }
@@ -324,7 +324,7 @@ class MCAnimatedMaterialHelper {
     }
 
     private updateUniforms() {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         const { totalFrames, interpolate, frames } = animationData!;
         const frameHeightUnit = 1.0 / this.actualFrames; // Height unit of one frame in UV space
 
@@ -367,7 +367,7 @@ class MCAnimatedMaterialHelper {
      * @param frameNumber - The frame number to set (range 0 to totalFrames-1)
      */
     public setFrame(frameNumber: number): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         if (!this.isAnimated || !animationData || frameNumber < 0) {
             return;
         }
@@ -384,7 +384,7 @@ class MCAnimatedMaterialHelper {
      * Sets the animation to the specified progress (0.0 to 1.0).
      */
     private updateFrameFromProgress(progress: number): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         const { totalFrames, interpolate } = animationData!;
 
         if (interpolate) {
@@ -405,7 +405,7 @@ class MCAnimatedMaterialHelper {
      * @param progress - The animation progress (floating-point number from 0.0 to 1.0)
      */
     public setProgress(progress: number): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         if (!this.isAnimated || !animationData || progress < 0 || progress > 1) {
             console.warn(`[MCAnimatedMaterial] Invalid animation progress ${progress}. Value must be between 0 and 1.`);
             return;
@@ -419,7 +419,7 @@ class MCAnimatedMaterialHelper {
      * * @param tick - The animation progress in Minecraft ticks (floating point number >= 0.0)
      */
     public updateAtTick(tick: number): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         if (!this.isAnimated || !animationData) return;
 
         const localTick = tick % animationData.animationDuration;
@@ -433,7 +433,7 @@ class MCAnimatedMaterialHelper {
      * May handle discrepancies in load timing during initialization.
      */
     public reset(): void {
-        const animationData = this.map.userData as TextureUserData;
+        const animationData = this.map?.userData as TextureUserData;
         this.currentFrameIndex = 0;
         this.currentFrameTime = 0;
         this.nextFrameIndex = 0;
@@ -441,7 +441,7 @@ class MCAnimatedMaterialHelper {
         this.isInitialized = false; // Reset initialization flag
 
         // If _shader doesn't exist, explicitly try to re-acquire it
-        if (!this._shader) {
+        if (!this._shader && this.material) {
             this.material.version++;
         }
 
@@ -487,7 +487,7 @@ class MCAnimatedMaterialHelper {
         this.crossfadeBlend = source.crossfadeBlend;
         this.isInitialized = source.isInitialized;
 
-        if (source.map && source.map.userData) {
+        if (source.map && source.map.userData && this.map) {
             this.map.userData = JSON.parse( JSON.stringify( source.map.userData ) );
         }
 
@@ -505,7 +505,7 @@ function injectMCAnimationFeatures(
     material: THREE.Material,
     parameters: THREE.MaterialParameters
 ) {
-    const base = new MCAnimatedMaterialHelper(material, parameters);
+    const base = new MCAnimatedMaterialHelper(material, parameters as MCAnimatedMaterialOptions);
 
     // Delegate MCAnimatedMaterialHelper methods to the material instance (bind to fix 'this')
     (material as any).update = base.update.bind(base);

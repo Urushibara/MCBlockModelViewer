@@ -628,10 +628,10 @@ export function createFaceMaterial(
             const color = diffuse[0].color;
             if (typeof color === 'string') {
                 if (MinecraftColors[color]) {
-                    materialOptions.color = MinecraftColors[color];
+                    materialOptions.color = new THREE.Color(MinecraftColors[color]);
                 }
             } else if (typeof color === 'number') {
-                materialOptions.color = color;
+                materialOptions.color = new THREE.Color(color);
             }
         }
     } else {
@@ -641,7 +641,7 @@ export function createFaceMaterial(
             );
             const diffuse = (match || diffuseColors.find(e => e.name === "default"));
             if (diffuse) {
-                materialOptions.color = diffuse.color;
+                materialOptions.color = new THREE.Color(diffuse.color);
             }
         }
 
@@ -651,7 +651,7 @@ export function createFaceMaterial(
         if (diffuse && faceData.texture == diffuse.texture) {
             const color = diffuse.color;
             if (color && MinecraftColors[color]) {
-                materialOptions.color = MinecraftColors[color];
+                materialOptions.color = new THREE.Color(MinecraftColors[color]);
             }
         }
     }
