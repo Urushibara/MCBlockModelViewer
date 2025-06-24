@@ -32,6 +32,8 @@ export class MCElementMesh extends THREE.Object3D {
 
     isMCElementMesh = true;
 
+    lightEmission = 0;
+
     /**
      * Constructor for MCElementMesh.
      * Generates a Three.js mesh from Minecraft model element data.
@@ -53,6 +55,9 @@ export class MCElementMesh extends THREE.Object3D {
 
             // Custom property to indicate that this instance is MCElementMesh
             (this as any).isMCElementMesh = true;
+
+            // Is element emits light?
+            this.lightEmission = element.light_emission ?? 0;
 
             // Convert blockstate rotation specification to an array per axis
             const blockstateRotations = convertBlockstateRotation(blockstate);
@@ -223,6 +228,19 @@ export class MCElementMesh extends THREE.Object3D {
             material.aoMapIntensity = intensity;
             material.needsUpdate = true;
         }
+    }
+
+    /**
+     * Checks if the specified face (up|down|north|east|south|west) is opaque.
+     * @param face - If face is undefined, Verify that the elements have six cullfaces.
+     * @returns true: if the face is opaque.
+     */
+    public isOpaque(face: IFaceName | undefined):boolean {
+        if (face){
+            return this._cullfaces[face] !== undefined;
+        }
+        // has all IFaceName (up|down|north|east|south|west)
+        return Object.keys(this._cullfaces).length === 6;
     }
 
     /**

@@ -6,6 +6,7 @@ import { MCElementMesh } from './MCElementMesh';
 import { APNGExporter } from './APNGExporter';
 import type { IBlockOption } from './interfaces/blockState';
 import type { MCTextures } from './MCTextureLoader';
+import type { IFaceName } from './interfaces/blockModel';
 
 import { toRaw } from 'vue';
 
@@ -26,6 +27,8 @@ export class BlockMeshGroup extends THREE.Group {
     _textureLoader: MCTextureLoader | undefined; // Instance of MCTextureLoader
     _blockName: string = "";
     _prepared = false;
+    _needsAO = false;
+    _lightLevel: number|undefined;
     public isAnimate = false;
     public exporter = new APNGExporter();
 
@@ -37,12 +40,13 @@ export class BlockMeshGroup extends THREE.Group {
      * @param {BlockModelLoader} options.modelLoader - Instance of BlockModelLoader
      * @param {MCTextureLoader} options.textureLoader - Instance of MCTextureLoader
      */
-    constructor({ blockName, modelLoader, textureLoader }: BlockMeshGroupParameter) {
+    constructor(options: BlockMeshGroupParameter) {
         super();
-        if (blockName && modelLoader && textureLoader) {
+        const { blockName, modelLoader, textureLoader } = options ?? {};
+        if (modelLoader && textureLoader) {
             this._modelLoader = modelLoader;
             this._textureLoader = textureLoader; // Retain MCTextureLoader instance
-            this._blockName = blockName;
+            this._blockName = blockName ?? "";
         }
     }
 
@@ -111,6 +115,10 @@ export class BlockMeshGroup extends THREE.Group {
                 }
                 await Promise.all(textureLoadPromises);
             }
+
+            // 3. Check needs AOmap
+            this._needsAO = this._needsAO && (modelData.ambientocclusion !== false);
+
             if (isDebug && false) {
                 console.log(`[BlockMeshGroup] Model and textures for '${modelRef}' prepared successfully.`);
             }
@@ -236,19 +244,63 @@ export class BlockMeshGroup extends THREE.Group {
         });
     }
 
+    public setVisibleToCulfaces(faces: { [facename in IFaceName]: boolean }) {
+        (this as THREE.Group).children.forEach(object => {
+            if ((object as MCElementMesh).isMCElementMesh) {
+                (object as MCElementMesh).setVisibleToCulfaces(faces);
+            }
+        });
+    }
+    
+    public applyAOMap(face: IFaceName, aoTexture: THREE.Texture, intensity: number) {
+        (this as THREE.Group).children.forEach(object => {
+            if ((object as MCElementMesh).isMCElementMesh) {
+                (object as MCElementMesh).applyAOMap(face, aoTexture, intensity);
+            }
+        });
+    }
+
+    public isOpaque(face: IFaceName | undefined):boolean {
+        let _isOpaque = false; // no cache
+        (this as THREE.Group).children.forEach(object => {
+            if ((object as MCElementMesh).isMCElementMesh) {
+                _isOpaque = _isOpaque || (object as MCElementMesh).isOpaque(face);
+            }
+        });
+        return _isOpaque;
+    }
+
+    public needsAOmap():boolean {
+        return this._needsAO;
+    }
+
+    public lightEmission():number {
+        if (this._lightLevel === undefined) {
+            let lightLevel = 0;
+            (this as THREE.Group).children.forEach(object => {
+                if ((object as MCElementMesh).isMCElementMesh) {
+                    lightLevel = Math.max(lightLevel, (object as MCElementMesh).lightEmission);
+                }
+            });
+            this._lightLevel = lightLevel;
+        }
+        return this._lightLevel;
+    }
+
     public clearTextureCache():void {
         if (this._textureLoader) {
             this._textureLoader.clearCache();
         }
     }
 
-    public clearBlock(cache = true):void {
+    public clearBlock(deep = true):void {
         (this as THREE.Group).children.forEach((child) => {
             if (child instanceof MCElementMesh) {
                 child.dispose();
             } else if ((child as THREE.Mesh).isMesh) {
                 if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
-                if ((child as THREE.Mesh).material) {
+                if (deep && // deep clean
+                    (child as THREE.Mesh).material) {
                     const materials: THREE.Material | THREE.Material[] = (child as THREE.Mesh).material;
                     if (!Array.isArray(materials) && materials !== FALLBACK_MATERIAL_CUBE) {
                         (materials as THREE.Material).dispose();
@@ -263,23 +315,25 @@ export class BlockMeshGroup extends THREE.Group {
             }
         });
         (this as THREE.Group).clear();
-        if(cache){
+        if(deep){
             this._modelCache.clear();
         }
+        this._needsAO = true;
     }
 
     /**
      * Disposes all meshes and cached resources within this group.
      * Texture disposal is handled by MCTextureLoader.
+     * @param deep - if true, materials are also disposed
      */
-    public dispose() {
-        this.clearBlock();
+    public dispose(deep: boolean = true) {
+        this.clearBlock( deep );
         // this._textureMapCache.clear(); // This is not needed. It's MCTextureLoader's responsibility.
 
         console.log("[BlockMeshGroup] Disposed all meshes and cleared caches.");
     }
 
-    public copy(source): this {
+    public copy(source:this): this {
         super.copy(source);
         
         this._modelLoader = source._modelLoader;
@@ -287,10 +341,8 @@ export class BlockMeshGroup extends THREE.Group {
         this._blockName = source._blockName;
         this._prepared = source._prepared;
         this.isAnimate = source.isAnimate;
-
-        if (source._prepared) {
-            this._modelCache = new Map(source._modelCache);
-        }
+        this._needsAO = source._needsAO;
+        this._lightLevel = source._lightLevel;
 
         return this;
     }
