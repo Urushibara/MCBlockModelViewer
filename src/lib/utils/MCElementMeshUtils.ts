@@ -3,7 +3,6 @@ import { MCAnimatedBasicMaterial, MCAnimatedLambertMaterial } from '../MCAnimate
 import type { ModelElement, ElementRotation, FaceProperties, IFaceName, IAngle } from '../interfaces/blockModel';
 import type { IBlockOption } from '../interfaces/blockState';
 import type { MCTextures, TextureUserData } from '../MCTextureLoader';
-import type { MCAnimatedMaterialOptions } from '../MCAnimatedMaterials';
 
 const isDebug = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
@@ -598,6 +597,12 @@ export function createFaceGeometry(
     return geometry;
 }
 
+function createWhite1x1Texture(): THREE.Texture {
+    const texture = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat);
+    texture.needsUpdate = true;
+    return texture;
+}
+
 /**
  * Generate a material from the texture information in the element.face of the Block Model.
  */
@@ -611,9 +616,11 @@ export function createFaceMaterial(
 ): THREE.Material {
     
     
-    let materialOptions: MCAnimatedMaterialOptions = {
+    let materialOptions: THREE.MeshLambertMaterialParameters = {
         map: textureEntry.map,
         alphaMap: textureEntry.alphaMap || null,
+        aoMap: createWhite1x1Texture(),
+        aoMapIntensity: 2.513,
         side: THREE.FrontSide, // Minecraft models are usually single-sided rendering
         transparent: textureEntry.transparent || false, // Prioritize texture's own transparency setting
         alphaTest: 0.1, // Alpha test threshold
@@ -679,6 +686,8 @@ export function createFaceMaterial(
             ? new THREE.MeshLambertMaterial(materialOptions)
             : new THREE.MeshBasicMaterial(materialOptions);
     }
+
+    console.log(material);
 
     return material;
 }

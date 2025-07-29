@@ -34,6 +34,8 @@ export class MCElementMesh extends THREE.Object3D {
 
     lightEmission = 0;
 
+    isTransparent: {[face in IFaceName]?: boolean } = {};
+
     /**
      * Constructor for MCElementMesh.
      * Generates a Three.js mesh from Minecraft model element data.
@@ -108,8 +110,8 @@ export class MCElementMesh extends THREE.Object3D {
                     blockstate,
                     tint
                 );
-                if ((material as MCAnimatedBasicMaterial).isMCAnimatedMaterial) {
-                    this._animatedMaterials.add(material as MCAnimatedBasicMaterial);
+                if ((material as MCAnimatedLambertMaterial).isMCAnimatedMaterial) {
+                    this._animatedMaterials.add(material as MCAnimatedLambertMaterial);
                 }
                 materialsToDispose.push(material);
 
@@ -117,13 +119,19 @@ export class MCElementMesh extends THREE.Object3D {
                 const mesh = new THREE.Mesh(geometry, material);
                 (this as THREE.Object3D).add(mesh); // Add child mesh to MCElementMesh instance itself
 
+
+                // for Building
+
                 if (faceData.cullface) {
-                    const facename = worldFaceDirection(faceData.cullface, blockstateRotations);
-                    if (!this._cullfaces[facename]) {
-                        this._cullfaces[facename] = [];
+                    const worldfacename = worldFaceDirection(faceData.cullface, blockstateRotations);
+                    if (!this._cullfaces[worldfacename]) {
+                        this._cullfaces[worldfacename] = [];
                     }
-                    this._cullfaces[facename]?.push(mesh);
+                    this._cullfaces[worldfacename]?.push(mesh);
                 }
+                
+                const worldfacename = worldFaceDirection(faceName as IFaceName, blockstateRotations);
+                this.isTransparent[worldfacename] = (this.isTransparent[worldfacename] ?? false) || (material as THREE.MeshLambertMaterial).alphaMap != null;
             }
 
             // Store generated geometries and materials in userData for resource disposal
@@ -174,7 +182,7 @@ export class MCElementMesh extends THREE.Object3D {
      */
     public tintTexture(textureID: string, color: number | string) {
         if(Array.isArray((this as THREE.Object3D).userData.materials)){
-            (this as THREE.Object3D).userData.materials.forEach((material: THREE.MeshBasicMaterial) => {
+            (this as THREE.Object3D).userData.materials.forEach((material: THREE.MeshLambertMaterial) => {
                 const texture: THREE.Texture|null = material?.map;
                 if (texture && texture?.userData?.texture_id) {
                     const texture_id = texture?.userData?.texture_id;
@@ -215,7 +223,7 @@ export class MCElementMesh extends THREE.Object3D {
 
         for (const mesh of meshes) {
             const geometry = mesh.geometry as THREE.BufferGeometry;
-            const material = mesh.material as THREE.MeshBasicMaterial;
+            const material = mesh.material as THREE.MeshLambertMaterial;
 
             if (!geometry.attributes.uv2) {
                 geometry.setAttribute(
@@ -231,12 +239,12 @@ export class MCElementMesh extends THREE.Object3D {
     }
 
     /**
-     * Checks if the specified face (up|down|north|east|south|west) is opaque.
+     * Checks if the specified face (up|down|north|east|south|west) is face culling.
      * @param face - If face is undefined, Verify that the elements have six cullfaces.
-     * @returns true: if the face is opaque.
+     * @returns true: if the face is face culling.
      */
-    public isOpaque(face: IFaceName | undefined):boolean {
-        if (face){
+    public hasCullface(face: IFaceName | undefined):boolean {
+        if (face) {
             return this._cullfaces[face] !== undefined;
         }
         // has all IFaceName (up|down|north|east|south|west)
@@ -315,8 +323,8 @@ export class MCElementMesh extends THREE.Object3D {
                 } else {
                     clonedMaterial = mesh.material.clone();
                     (this as THREE.Object3D).userData.materials.push(clonedMaterial);
-                    if ((clonedMaterial as MCAnimatedBasicMaterial).isMCAnimatedMaterial) {
-                        this._animatedMaterials.add(clonedMaterial as MCAnimatedBasicMaterial);
+                    if ((clonedMaterial as MCAnimatedLambertMaterial).isMCAnimatedMaterial) {
+                        this._animatedMaterials.add(clonedMaterial as MCAnimatedLambertMaterial);
                     }
                 }
 

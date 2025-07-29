@@ -13,16 +13,16 @@ export const mock_datas = {
 				"from": [7, 0, 7],
 				"to": [9, 16, 9],
 				"faces": {
-					"east": {"uv": [7, 0, 9, 16], "texture": "#bars"},
-					"west": {"uv": [7, 0, 9, 16], "texture": "#bars"}
+					"east": { "uv": [7, 0, 9, 16], "texture": "#bars" },
+					"west": { "uv": [7, 0, 9, 16], "texture": "#bars" }
 				}
 			},
 			{
 				"from": [7, 0, 7],
 				"to": [9, 16, 9],
 				"faces": {
-					"north": {"uv": [7, 0, 9, 16], "texture": "#bars"},
-					"south": {"uv": [7, 0, 9, 16], "texture": "#bars"}
+					"north": { "uv": [7, 0, 9, 16], "texture": "#bars" },
+					"south": { "uv": [7, 0, 9, 16], "texture": "#bars" }
 				}
 			}
 		]
@@ -51,23 +51,23 @@ export const complement_blocks = {
 				"from": [0, 0, 0],
 				"to": [16, 13, 16],
 				"faces": {
-					"north": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "north", "tintindex":0},
-					"east": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "east", "tintindex":0},
-					"south": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "south", "tintindex":0},
-					"west": {"uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "west", "tintindex":0},
-					"up": {"uv": [0, 0, 16, 16], "texture": "#still", "tintindex":0},
-					"down": {"uv": [0, 0, 16, 16], "texture": "#still", "cullface": "down", "tintindex":0}
+					"north": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "north", "tintindex": 0 },
+					"east": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "east", "tintindex": 0 },
+					"south": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "south", "tintindex": 0 },
+					"west": { "uv": [8, 9.5, 0, 16], "texture": "#flow", "cullface": "west", "tintindex": 0 },
+					"up": { "uv": [0, 0, 16, 16], "texture": "#still", "tintindex": 0 },
+					"down": { "uv": [0, 0, 16, 16], "texture": "#still", "cullface": "down", "tintindex": 0 }
 				}
 			},
 			{
 				"from": [15.998, 0.002, 0.002],
 				"to": [0.002, 12.998, 15.998],
 				"faces": {
-					"north": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "south", "tintindex":0},
-					"east": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "west", "tintindex":0},
-					"south": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "north", "tintindex":0},
-					"west": {"uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "east", "tintindex":0},
-					"up": {"uv": [16, 0, 0, 16], "texture": "#still", "tintindex":0}
+					"north": { "uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "south", "tintindex": 0 },
+					"east": { "uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "west", "tintindex": 0 },
+					"south": { "uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "north", "tintindex": 0 },
+					"west": { "uv": [7.996, 9.5, 0, 15.996], "texture": "#flow", "cullface": "east", "tintindex": 0 },
+					"up": { "uv": [16, 0, 0, 16], "texture": "#still", "tintindex": 0 }
 				}
 			}
 		]
@@ -562,6 +562,46 @@ export const complement_blocks = {
 			"facing=east": { "model": "block/trapped_chest", "y": 90 },
 			"facing=south": { "model": "block/trapped_chest", "y": 180 },
 			"facing=west": { "model": "block/trapped_chest", "y": 270 },
+		}
+	},
+	// copper chest
+	"assets/minecraft/models/block/copper_chest.json": { "parent": "block/chest", "textures": { "chest": "entity/chest/copper" } },
+	"assets/minecraft/blockstates/copper_chest.json": {
+		"variants": {
+			"facing=north": { "model": "block/copper_chest" },
+			"facing=east": { "model": "block/copper_chest", "y": 90 },
+			"facing=south": { "model": "block/copper_chest", "y": 180 },
+			"facing=west": { "model": "block/copper_chest", "y": 270 },
+		}
+	},
+	// exposed copper chest
+	"assets/minecraft/models/block/exposed_copper_chest.json": { "parent": "block/chest", "textures": { "chest": "entity/chest/copper_exposed" } },
+	"assets/minecraft/blockstates/exposed_copper_chest.json": {
+		"variants": {
+			"facing=north": { "model": "block/exposed_copper_chest" },
+			"facing=east": { "model": "block/exposed_copper_chest", "y": 90 },
+			"facing=south": { "model": "block/exposed_copper_chest", "y": 180 },
+			"facing=west": { "model": "block/exposed_copper_chest", "y": 270 },
+		}
+	},
+	// oxidized copper chest
+	"assets/minecraft/models/block/oxidized_copper_chest.json": { "parent": "block/chest", "textures": { "chest": "entity/chest/copper_oxidized" } },
+	"assets/minecraft/blockstates/oxidized_copper_chest.json": {
+		"variants": {
+			"facing=north": { "model": "block/oxidized_copper_chest" },
+			"facing=east": { "model": "block/oxidized_copper_chest", "y": 90 },
+			"facing=south": { "model": "block/oxidized_copper_chest", "y": 180 },
+			"facing=west": { "model": "block/oxidized_copper_chest", "y": 270 },
+		}
+	},
+	// weathered copper chest
+	"assets/minecraft/models/block/weathered_copper_chest.json": { "parent": "block/chest", "textures": { "chest": "entity/chest/copper_weathered" } },
+	"assets/minecraft/blockstates/weathered_copper_chest.json": {
+		"variants": {
+			"facing=north": { "model": "block/weathered_copper_chest" },
+			"facing=east": { "model": "block/weathered_copper_chest", "y": 90 },
+			"facing=south": { "model": "block/weathered_copper_chest", "y": 180 },
+			"facing=west": { "model": "block/weathered_copper_chest", "y": 270 },
 		}
 	},
 	// christmas chest
@@ -2095,5 +2135,188 @@ export const complement_blocks = {
 				}
 			}
 		]
+	},
+	"assets/minecraft/blockstates/copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/copper_golem_statue" },
+			"facing=east": { "model": "block/copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/blockstates/exposed_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/exposed_copper_golem_statue" },
+			"facing=east": { "model": "block/exposed_copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/exposed_copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/exposed_copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/blockstates/oxidized_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/oxidized_copper_golem_statue" },
+			"facing=east": { "model": "block/oxidized_copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/oxidized_copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/oxidized_copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/blockstates/weathered_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/weathered_copper_golem_statue" },
+			"facing=east": { "model": "block/weathered_copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/weathered_copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/weathered_copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/models/block/copper_golem_statue.json": {
+		"textures": {
+			"copper_golem": "entity/copper_golem/copper_golem"
+		},
+		"elements": [
+			{
+				"name": "body",
+				"from": [4, 5, 5],
+				"to": [12, 11, 11],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [1.5, 5.25, 3.5, 6.75], "texture": "#copper_golem" },
+					"east": { "uv": [0, 5.25, 1.5, 6.75], "texture": "#copper_golem" },
+					"south": { "uv": [5, 5.25, 7, 6.75], "texture": "#copper_golem" },
+					"west": { "uv": [3.5, 5.25, 5, 6.75], "texture": "#copper_golem" },
+					"up": { "uv": [3.5, 5.25, 1.5, 3.75], "texture": "#copper_golem" },
+					"down": { "uv": [5.5, 3.75, 3.5, 5.25], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "head",
+				"from": [4, 11, 3],
+				"to": [12, 16, 13],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [2.5, 2.5, 4.5, 3.75], "texture": "#copper_golem" },
+					"east": { "uv": [0, 2.5, 2.5, 3.75], "texture": "#copper_golem" },
+					"south": { "uv": [7, 2.5, 9, 3.75], "texture": "#copper_golem" },
+					"west": { "uv": [4.5, 2.5, 7, 3.75], "texture": "#copper_golem" },
+					"up": { "uv": [4.5, 2.5, 2.5, 0], "texture": "#copper_golem" },
+					"down": { "uv": [6.5, 0, 4.5, 2.5], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "head",
+				"from": [7, 10, 2],
+				"to": [9, 13, 4],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [14.5, 0.5, 15, 1.25], "texture": "#copper_golem" },
+					"east": { "uv": [14, 0.5, 14.5, 1.25], "texture": "#copper_golem" },
+					"south": { "uv": [15.5, 0.5, 16, 1.25], "texture": "#copper_golem" },
+					"west": { "uv": [15, 0.5, 15.5, 1.25], "texture": "#copper_golem" },
+					"up": { "uv": [15, 0.5, 14.5, 0], "texture": "#copper_golem" },
+					"down": { "uv": [15.5, 0, 15, 0.5], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "head",
+				"from": [7, 16, 7],
+				"to": [9, 20, 9],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [9.75, 2.5, 10.25, 3.5], "texture": "#copper_golem" },
+					"east": { "uv": [9.25, 2.5, 9.75, 3.5], "texture": "#copper_golem" },
+					"south": { "uv": [10.75, 2.5, 11.25, 3.5], "texture": "#copper_golem" },
+					"west": { "uv": [10.25, 2.5, 10.75, 3.5], "texture": "#copper_golem" },
+					"up": { "uv": [10.25, 2.5, 9.75, 2], "texture": "#copper_golem" },
+					"down": { "uv": [10.75, 2, 10.25, 2.5], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "head",
+				"from": [6, 20, 6],
+				"to": [10, 24, 10],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [10.25, 1, 11.25, 2], "texture": "#copper_golem" },
+					"east": { "uv": [9.25, 1, 10.25, 2], "texture": "#copper_golem" },
+					"south": { "uv": [12.25, 1, 13.25, 2], "texture": "#copper_golem" },
+					"west": { "uv": [11.25, 1, 12.25, 2], "texture": "#copper_golem" },
+					"up": { "uv": [11.25, 1, 10.25, 0], "texture": "#copper_golem" },
+					"down": { "uv": [12.25, 0, 11.25, 1], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "right_arm",
+				"from": [12, 2, 6],
+				"to": [15, 12, 10],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [10, 5, 10.75, 7.5], "texture": "#copper_golem" },
+					"east": { "uv": [9, 5, 10, 7.5], "texture": "#copper_golem" },
+					"south": { "uv": [11.75, 5, 12.5, 7.5], "texture": "#copper_golem" },
+					"west": { "uv": [10.75, 5, 11.75, 7.5], "texture": "#copper_golem" },
+					"up": { "uv": [10.75, 5, 10, 4], "texture": "#copper_golem" },
+					"down": { "uv": [11.5, 4, 10.75, 5], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "left_arm",
+				"from": [1, 2, 6],
+				"to": [4, 12, 10],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [13.5, 5, 14.25, 7.5], "texture": "#copper_golem" },
+					"east": { "uv": [12.5, 5, 13.5, 7.5], "texture": "#copper_golem" },
+					"south": { "uv": [15.25, 5, 16, 7.5], "texture": "#copper_golem" },
+					"west": { "uv": [14.25, 5, 15.25, 7.5], "texture": "#copper_golem" },
+					"up": { "uv": [14.25, 5, 13.5, 4], "texture": "#copper_golem" },
+					"down": { "uv": [15, 4, 14.25, 5], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "right_leg",
+				"from": [7.9, 0, 6.01],
+				"to": [11.9, 5, 10.01],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [1, 7.75, 2, 9], "texture": "#copper_golem" },
+					"east": { "uv": [0, 7.75, 1, 9], "texture": "#copper_golem" },
+					"south": { "uv": [3, 7.75, 4, 9], "texture": "#copper_golem" },
+					"west": { "uv": [2, 7.75, 3, 9], "texture": "#copper_golem" },
+					"up": { "uv": [2, 7.75, 1, 6.75], "texture": "#copper_golem" },
+					"down": { "uv": [3, 6.75, 2, 7.75], "texture": "#copper_golem" }
+				}
+			},
+			{
+				"name": "left_leg",
+				"from": [4.1, 0, 6],
+				"to": [8.1, 5, 10],
+				"rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+				"faces": {
+					"north": { "uv": [5, 7.75, 6, 9], "texture": "#copper_golem" },
+					"east": { "uv": [4, 7.75, 5, 9], "texture": "#copper_golem" },
+					"south": { "uv": [7, 7.75, 8, 9], "texture": "#copper_golem" },
+					"west": { "uv": [6, 7.75, 7, 9], "texture": "#copper_golem" },
+					"up": { "uv": [6, 7.75, 5, 6.75], "texture": "#copper_golem" },
+					"down": { "uv": [7, 6.75, 6, 7.75], "texture": "#copper_golem" }
+				}
+			}
+		]
+	},
+	"assets/minecraft/models/block/exposed_copper_golem_statue.json": {
+		parent: "block/copper_golem_statue",
+		textures: {
+			"copper_golem": "entity/copper_golem/exposed_copper_golem",
+		},
+	},
+	"assets/minecraft/models/block/oxidized_copper_golem_statue.json": {
+		parent: "block/copper_golem_statue",
+		textures: {
+			"copper_golem": "entity/copper_golem/oxidized_copper_golem",
+		},
+	},
+	"assets/minecraft/models/block/weathered_copper_golem_statue.json": {
+		parent: "block/copper_golem_statue",
+		textures: {
+			"copper_golem": "entity/copper_golem/weathered_copper_golem",
+		},
 	},
 };

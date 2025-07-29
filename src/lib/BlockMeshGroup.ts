@@ -260,14 +260,14 @@ export class BlockMeshGroup extends THREE.Group {
         });
     }
 
-    public isOpaque(face: IFaceName | undefined):boolean {
-        let _isOpaque = false; // no cache
+    public hasCullface(face: IFaceName | undefined):boolean {
+        let hasCullface = false; // no cache
         (this as THREE.Group).children.forEach(object => {
             if ((object as MCElementMesh).isMCElementMesh) {
-                _isOpaque = _isOpaque || (object as MCElementMesh).isOpaque(face);
+                hasCullface = hasCullface || (object as MCElementMesh).hasCullface(face);
             }
         });
-        return _isOpaque;
+        return hasCullface;
     }
 
     public needsAOmap():boolean {
