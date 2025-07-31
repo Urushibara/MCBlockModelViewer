@@ -34,7 +34,7 @@ The app will be available at http://localhost:5173 by default.
 Most of the source code was generated with the help of AI (ChatGPT and Gemini),  
 while design, testing, debugging, and fixes were done manually.
 
-### Included Code
+## Included Code
 
 This project includes a modified version of `canvas2apng`  
 (original: https://github.com/akalverboer/canvas2apng), licensed under the MIT License.
