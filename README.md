@@ -23,17 +23,6 @@ cd mcblockmodelviewer
 npm install
 ```
 
-#### Dependency Note
-
-This project uses a forked version of [`canvas2apng`](https://github.com/Urushibara/canvas2apng),  
-customized to work as an ES module. It is installed via GitHub:
-
-```json
-"@urushibara/canvas2apng": "github:Urushibara/canvas2apng"
-```
-Note: `git` is required for npm install to work correctly.
-
-
 ### 3. Start the development server
 ```bash
 npm run dev
