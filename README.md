@@ -9,6 +9,26 @@
 - Supports loading and applying multiple resource packs.
 - Exports renders as PNG images. Animated textures are supported and can be saved as APNG.
 
+## How to Run Locally
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Urushibara/MCBlockModelViewer.git
+cd mcblockmodelviewer
+```
+
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Start the development server
+```bash
+npm run dev
+```
+The app will be available at http://localhost:5173 by default.
+
 
 ## Special Thanks to AI
 Most of the source code was generated with the help of AI (ChatGPT and Gemini),  
