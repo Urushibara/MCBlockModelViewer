@@ -2168,6 +2168,38 @@ export const complement_blocks = {
 			"facing=west": { "model": "block/weathered_copper_golem_statue", "y": 270 },
 		}
 	},
+	"assets/minecraft/blockstates/waxed_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/copper_golem_statue" },
+			"facing=east": { "model": "block/copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/blockstates/waxed_exposed_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/exposed_copper_golem_statue" },
+			"facing=east": { "model": "block/exposed_copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/exposed_copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/exposed_copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/blockstates/waxed_oxidized_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/oxidized_copper_golem_statue" },
+			"facing=east": { "model": "block/oxidized_copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/oxidized_copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/oxidized_copper_golem_statue", "y": 270 },
+		}
+	},
+	"assets/minecraft/blockstates/waxed_weathered_copper_golem_statue.json": {
+		"variants": {
+			"facing=north": { "model": "block/weathered_copper_golem_statue" },
+			"facing=east": { "model": "block/weathered_copper_golem_statue", "y": 90 },
+			"facing=south": { "model": "block/weathered_copper_golem_statue", "y": 180 },
+			"facing=west": { "model": "block/weathered_copper_golem_statue", "y": 270 },
+		}
+	},
 	"assets/minecraft/models/block/copper_golem_statue.json": {
 		"textures": {
 			"copper_golem": "entity/copper_golem/copper_golem"
