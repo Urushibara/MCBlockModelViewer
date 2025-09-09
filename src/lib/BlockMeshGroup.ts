@@ -302,9 +302,11 @@ export class BlockMeshGroup extends THREE.Group {
                 if (deep && // deep clean
                     (child as THREE.Mesh).material) {
                     const materials: THREE.Material | THREE.Material[] = (child as THREE.Mesh).material;
-                    if (!Array.isArray(materials) && materials !== FALLBACK_MATERIAL_CUBE) {
-                        (materials as THREE.Material).dispose();
-                    } else {
+                    if (!Array.isArray(materials)) {
+                        if (materials !== FALLBACK_MATERIAL_CUBE) {
+                            (materials as THREE.Material).dispose();
+                        }
+                    } else if (materials) {
                         (materials as THREE.Material[]).forEach( (material: THREE.Material) => {
                             if (material !== FALLBACK_MATERIAL_CUBE) {
                                 material.dispose();
