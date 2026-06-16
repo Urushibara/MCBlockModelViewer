@@ -5,9 +5,17 @@
  */
 export interface MCModel {
     ambientocclusion?: boolean,
-    textures?: { [key:string] : string },
+    textures?: { [key: string]: string | MCTextureObject },
     parent?: string,
     elements?: ModelElement[]
+}
+
+/**
+ * Definition of a texture section
+ */
+export interface MCTextureObject {
+    sprite: string;               // 実際のテクスチャへのパス（必須）
+    force_translucent?: boolean;  // 半透明描画の強制フラグ（オプション）
 }
 
 /**

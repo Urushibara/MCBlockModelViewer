@@ -106,10 +106,11 @@ export class BlockMeshGroup extends THREE.Group {
             this._modelCache.set(modelRef, modelData);
 
             // 2. Load associated textures (MCTextureLoader manages caching)
-            if (modelData.textures) {
+            const textures = modelData.textures as Record<string, string> | undefined;
+            if (textures) {
                 const textureLoadPromises:Promise<MCTextures>[] = [];
-                for (const textureName in modelData.textures) {
-                    const textureRef = modelData.textures[textureName];
+                for (const textureName in textures) {
+                    const textureRef = textures[textureName];
                     // Request loading from MCTextureLoader. MCTextureLoader itself caches.
                     textureLoadPromises.push(this._textureLoader.loadTexture(textureRef, `#${textureName}`));
                 }

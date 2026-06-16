@@ -1,5 +1,5 @@
 import { MinecraftJarLoader } from './MinecraftJarLoader';
-import type { MCModel } from './interfaces/blockModel'
+import type { MCModel, MCTextureObject } from './interfaces/blockModel'
 
 // BlockModelLoader.ts
 
@@ -107,6 +107,26 @@ export class BlockModelLoader {
     }
 
     /**
+     * 文字列、または1.21.2以降の新仕様オブジェクトからテクスチャのパス文字列を抽出する
+     * @private
+     * @param ref 
+     */
+    private _extractTextureString(ref: any): string {
+        if (!ref) return "";
+        if (typeof ref === 'string') return ref;
+        
+        if (typeof ref === 'object') {
+            // 26.1 snap 7 以降のオブジェクト仕様（.sprite）に対応
+            if (ref.sprite && typeof ref.sprite === 'string') {
+                return ref.sprite;
+            }
+        }
+        
+        return String(ref);
+    }
+
+
+    /**
      * Resolves texture references starting with '#' by traversing the textureMap.
      * @private
      * @param {string} ref - The texture reference to resolve (e.g., "#stone" or "block/stone")
@@ -114,19 +134,22 @@ export class BlockModelLoader {
      * @param {number} [depth=5] - Recursion depth limit
      * @returns {string} The resolved texture path (e.g., "block/stone")
      */
-    private _resolveTextureRef(ref:string, textureMap: MCModel['textures'], depth:number = 5):string {
+    private _resolveTextureRef(ref: string | MCTextureObject | undefined, textureMap: MCModel['textures'], depth:number = 5):string {
+
+        const refStr = this._extractTextureString(ref);
+
         // If it doesn't start with "#" or recursion depth is 0, return as is.
-        if (!ref || !ref.startsWith("#") || depth <= 0 || !textureMap) {
-            return ref;
+        if (!refStr || !refStr.startsWith("#") || depth <= 0 || !textureMap) {
+            return refStr;
         }
 
-        const key:string = ref.substring(1); // Key without "#"
-        const next:string = textureMap[key]; // Get the next reference from the map
+        const key:string = refStr.substring(1); // Key without "#"
+        const next = textureMap[key]; // Get the next reference from the map
 
         // If the next reference doesn't exist, it cannot be resolved, so return the original reference.
         if (!next) {
-            console.warn(`[BlockModelLoader] Unresolved texture reference: ${ref}. Key '${key}' not found in texture map.`);
-            return ref; 
+            console.warn(`[BlockModelLoader] Unresolved texture reference: ${refStr}. Key '${key}' not found in texture map.`);
+            return refStr; 
         }
 
         // If the next reference starts with "#", resolve recursively.
