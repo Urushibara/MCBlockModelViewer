@@ -163,7 +163,7 @@ const updateListsAndUI = () => {
     availableBlocks.value = jarLoader.getBlockstateNames(selectedNamespace.value);
 
     // Select default block (initial load or namespace change)
-    const debug_target = isDebug ? "blue_banner" : "grass_block";
+    const debug_target = isDebug ? "acasia_button" : "grass_block";
     if (!lastLoaddedBlock && availableBlocks.value.includes(debug_target)) {
         selectedBlockName.value = debug_target;
     } else if (lastLoaddedBlock && availableBlocks.value.includes(lastLoaddedBlock)) {

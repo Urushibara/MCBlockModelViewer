@@ -107,7 +107,7 @@ export class BlockModelLoader {
     }
 
     /**
-     * 文字列、または1.21.2以降の新仕様オブジェクトからテクスチャのパス文字列を抽出する
+     * Extract the texture path string from a string or a new object specification from version 1.21.2 or later.
      * @private
      * @param ref 
      */

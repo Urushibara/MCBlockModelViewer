@@ -415,19 +415,8 @@ export function convertBlockstateRotation(state: IBlockOption): InternalStateRot
  * @returns The angle of the face after rotation
  */
 function getFaceTextureRotation(face: IFaceName, rotations: InternalStateRotation[]): IAngle {
-
-    // Define which direction is "up" for each face
-    const faceUpVectors: Record<IFaceName, THREE.Vector3> = {
-        up: new THREE.Vector3(0, 0, -1),
-        down: new THREE.Vector3(0, 0, 1),
-        north: new THREE.Vector3(0, 1, 0),
-        south: new THREE.Vector3(0, 1, 0),
-        east: new THREE.Vector3(0, 1, 0),
-        west: new THREE.Vector3(0, 1, 0),
-    };
-
-    // Define normals
-    const normals: Record<IFaceName, THREE.Vector3> = {
+    // 1. Define standard direction vectors in world (global) space
+    const worldNormals: Record<IFaceName, THREE.Vector3> = {
         up: new THREE.Vector3(0, 1, 0),
         down: new THREE.Vector3(0, -1, 0),
         north: new THREE.Vector3(0, 0, -1),
@@ -436,31 +425,66 @@ function getFaceTextureRotation(face: IFaceName, rotations: InternalStateRotatio
         west: new THREE.Vector3(-1, 0, 0),
     };
 
-    // 1. Compose quaternions
+    // Define the default 'up' direction of the texture for each world-space face
+    const worldUpVectors: Record<IFaceName, THREE.Vector3> = {
+        up: new THREE.Vector3(0, 0, -1),   // Top face: texture 'up' faces North (Z-)
+        down: new THREE.Vector3(0, 0, 1),   // Bottom face: texture 'up' faces South (Z+)
+        north: new THREE.Vector3(0, 1, 0),  // North face: texture 'up' faces Up (Y+)
+        south: new THREE.Vector3(0, 1, 0),  // South face: texture 'up' faces Up (Y+)
+        east: new THREE.Vector3(0, 1, 0),   // East face: texture 'up' faces Up (Y+)
+        west: new THREE.Vector3(0, 1, 0),   // West face: texture 'up' faces Up (Y+)
+    };
+
+    // Define the default 'right' direction of the texture for each world-space face
+    const worldRightVectors: Record<IFaceName, THREE.Vector3> = {
+        up: new THREE.Vector3(1, 0, 0),    // Top face: texture 'right' faces East (X+)
+        down: new THREE.Vector3(1, 0, 0),  // Bottom face: texture 'right' faces East (X+)
+        north: new THREE.Vector3(-1, 0, 0), // North face: texture 'right' faces West (X-)
+        south: new THREE.Vector3(1, 0, 0),  // South face: texture 'right' faces East (X+)
+        east: new THREE.Vector3(0, 0, -1),  // East face: texture 'right' faces North (Z-)
+        west: new THREE.Vector3(0, 0, 1),   // West face: texture 'right' faces South (Z+)
+    };
+
+    // 2. Compose the blockstate rotations into a single quaternion (using premultiply to match geometry)
     const q = new THREE.Quaternion();
     for (const { axis, angle } of rotations) {
         const radians = THREE.MathUtils.degToRad(angle);
-        const axisVec =
-            axis === "x"
-                ? new THREE.Vector3(1, 0, 0)
-                : new THREE.Vector3(0, 1, 0);
+        const axisVec = axis === "x" ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
         const qRot = new THREE.Quaternion().setFromAxisAngle(axisVec, radians);
-        q.multiply(qRot); // Compose sequentially
+        q.premultiply(qRot);
     }
 
-    // 2. Rotate the original local 'up' vector to its orientation in global space
-    const localUp = faceUpVectors[face].clone().applyQuaternion(q);
+    // 3. Find the current orientation of this specific face in world space after rotation
+    const currentFaceNormal = worldNormals[face].clone().applyQuaternion(q).normalize();
 
-    // 3. Compare the rotated "up" vector (local Y) to see which direction it faces
-    // -> Calculate the rotation angle (around the Z-axis) relative to the global "up"
-    const referenceUp = faceUpVectors[face]; // Reference direction
-    const angleRad = Math.atan2(
-        localUp.clone().cross(referenceUp).dot(normals[face]), // Rotation direction
-        localUp.dot(referenceUp) // Rotation amount (cosθ)
-    );
+    // 4. Determine which global direction (world face) this face is currently looking at
+    let targetWorldFace: IFaceName = 'north';
+    let maxDot = -2;
+    for (const key of Object.keys(worldNormals) as IFaceName[]) {
+        const dot = currentFaceNormal.dot(worldNormals[key]);
+        if (dot > maxDot) {
+            maxDot = dot;
+            targetWorldFace = key;
+        }
+    }
+
+    // 5. Calculate where the original texture 'up' vector is now pointing in world space
+    const originalLocalUp = worldUpVectors[face].clone();
+    const currentTextureUp = originalLocalUp.applyQuaternion(q).normalize();
+
+    // 6. Project the transformed texture 'up' vector onto the target world face's Up and Right basises
+    const refWorldUp = worldUpVectors[targetWorldFace];
+    const refWorldRight = worldRightVectors[targetWorldFace];
+
+    const cosTheta = currentTextureUp.dot(refWorldUp);
+    const sinTheta = currentTextureUp.dot(refWorldRight);
+
+    // 7. Calculate the final uvlock angle using robust dot products (immune to parallel vector precision flaws)
+    const angleRad = Math.atan2(sinTheta, cosTheta);
     const angleDeg = Math.round((THREE.MathUtils.radToDeg(angleRad) + 360) % 360);
+
     return angleDeg as IAngle;
-};
+}
 
 /**
  * Converts a local face direction into the corresponding world face direction
